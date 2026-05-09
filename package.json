@@ -14,6 +14,7 @@
     "demo": "tsx src/lang/demo.ts",
     "demo:hunger": "tsx src/sim/hunger-demo.ts",
     "demo:parse": "tsx src/lang/parse-demo.ts",
+    "demo:respond": "tsx src/lang/respond-eval.ts",
     "demo:village": "vite --open /village.html"
   },
   "dependencies": {

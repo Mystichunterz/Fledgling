@@ -100,6 +100,11 @@ const ALL_TEMPLATES: Template[] = [
   T("EAT_object_first", "EAT", "patient focus: patient, agent eats", [
     { kind: "object" }, { kind: "subject" }, { kind: "verb" },
   ]),
+
+  T("BE_STATE_active", "BE_STATE", "active: experiencer is state", SVO_O),
+  T("BE_STATE_object_first", "BE_STATE", "state focus: state, experiencer is", [
+    { kind: "object" }, { kind: "subject" }, { kind: "verb" },
+  ]),
 ];
 
 export function templatesFor(frameId: string): Template[] {

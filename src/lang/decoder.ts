@@ -188,22 +188,27 @@ export function decodeText(
   if (tokens.length === 0) throw new ParseError("Empty input");
 
   // Strip sentence-level mood particles (simple-difficulty languages).
-  // Track which mood the particle implied so we can override the verb's
-  // morphological mood (which is zero-marked in simple mode).
+  // Q is purely a question signal (the wh-word in the noun analysis will
+  // produce the "unknown" filler — particle is redundant but stripped if
+  // present). IMP sets the FilledFrame's mood to imperative.
   let particleMood: Mood | null = null;
   if (spec.particles) {
-    const tryStrip = (p: { form: string; position: "initial" | "final" }, mood: Mood) => {
-      if (p.form === "") return;
+    const tryStrip = (p: { form: string; position: "initial" | "final" }): boolean => {
+      if (p.form === "") return false;
       if (p.position === "initial" && tokens[0] === p.form) {
         tokens = tokens.slice(1);
-        particleMood = mood;
-      } else if (p.position === "final" && tokens[tokens.length - 1] === p.form) {
-        tokens = tokens.slice(0, -1);
-        particleMood = mood;
+        return true;
       }
+      if (p.position === "final" && tokens[tokens.length - 1] === p.form) {
+        tokens = tokens.slice(0, -1);
+        return true;
+      }
+      return false;
     };
-    tryStrip(spec.particles.Q, "interrogative");
-    if (particleMood === null) tryStrip(spec.particles.IMP, "imperative");
+    const qStripped = tryStrip(spec.particles.Q);
+    if (!qStripped && tryStrip(spec.particles.IMP)) {
+      particleMood = "imperative";
+    }
   }
   if (tokens.length === 0) throw new ParseError("Empty input after particle strip");
 
@@ -227,8 +232,9 @@ export function decodeText(
   const frame = FRAMES[frameId];
   if (!frame) throw new ParseError(`Unknown frame: ${frameId}`);
 
-  // Particle mood (simple-difficulty languages) overrides the verb's
-  // morphological mood, which is zero-marked in simple mode.
+  // Particle mood (imperative) overrides the verb's morphological mood,
+  // which is zero-marked in simple mode. Question-ness no longer factors
+  // into Mood — it rides on the "unknown" filler emitted from the wh-word.
   const mood: Mood = particleMood ?? moodFromTag(verb.mood);
 
   // Assign each non-verb token to a role by matching case to grammar.
@@ -247,7 +253,14 @@ export function decodeText(
       );
     }
     if (noun.entry.category === "wh") {
-      filledRoles[role.name] = "?";
+      filledRoles[role.name] = "unknown";
+    } else if (noun.entry.category === "pronoun") {
+      if (!noun.entry.person) {
+        throw new ParseError(
+          `Pronoun lexicon entry ${noun.conceptId} is missing person`,
+        );
+      }
+      filledRoles[role.name] = noun.entry.person;
     } else {
       if (!noun.entry.semanticType) {
         throw new ParseError(
@@ -358,24 +371,30 @@ function decodeSimple(spec: LanguageSpec, input: string): FilledFrame {
   const objectRole = frame.roles.find((r) => r.grammar === "object");
   const obliqueRole = frame.roles.find((r) => r.grammar === "oblique");
 
-  // Split around the verb. The oblique slot, if the frame has one, sits
-  // immediately adjacent to the verb on the configured side.
+  // Split around the verb. The encoder's canonical template emits the
+  // oblique at the OUTER end of the sentence (after the object for
+  // post-verb languages, before the subject for pre-verb), not adjacent to
+  // the verb — so we peel it from the far edge of the appropriate span.
+  // For verb-final orders (SOV, OSV) the post-verb span is just [OBL] and
+  // both ends collapse to the same token; for verb-medial orders (SVO,
+  // OVS) the difference matters and the outer-edge rule is what matches
+  // the encoder.
   let preV = rest.slice(0, verbIdx);
   let postV = rest.slice(verbIdx + 1);
   let obliqueToken: string | undefined;
   if (obliqueRole) {
     if (spec.syntax.obliquePosition === "pre-verb") {
-      obliqueToken = preV[preV.length - 1];
+      obliqueToken = preV[0];
       if (obliqueToken === undefined) {
         throw new ParseError(`Frame ${frame.id} expects a pre-verb oblique`);
       }
-      preV = preV.slice(0, -1);
+      preV = preV.slice(1);
     } else {
-      obliqueToken = postV[0];
+      obliqueToken = postV[postV.length - 1];
       if (obliqueToken === undefined) {
         throw new ParseError(`Frame ${frame.id} expects a post-verb oblique`);
       }
-      postV = postV.slice(1);
+      postV = postV.slice(0, -1);
     }
   }
 
@@ -425,6 +444,9 @@ function stripMoodParticleSimple(
   tokens: string[],
 ): { mood: Mood; rest: string[] } {
   if (!spec.particles) return { mood: "declarative", rest: tokens };
+  // The Q particle is informational only — question-ness rides on the
+  // "unknown" filler the wh-word produces. The Mood we return is just
+  // declarative vs imperative; Q strips the particle and stays declarative.
   const tryStrip = (
     p: { form: string; position: "initial" | "final" } | undefined,
     mood: Mood,
@@ -439,7 +461,7 @@ function stripMoodParticleSimple(
     return null;
   };
   return (
-    tryStrip(spec.particles.Q, "interrogative") ??
+    tryStrip(spec.particles.Q, "declarative") ??
     tryStrip(spec.particles.IMP, "imperative") ?? {
       mood: "declarative",
       rest: tokens,
@@ -473,7 +495,13 @@ function nounTokenToFillerSimple(
     }
   }
   if (!entry || !conceptId) throw new ParseError(`Unknown word "${token}"`);
-  if (entry.category === "wh") return "?";
+  if (entry.category === "wh") return "unknown";
+  if (entry.category === "pronoun") {
+    if (!entry.person) {
+      throw new ParseError(`Pronoun lexicon entry ${conceptId} is missing person`);
+    }
+    return entry.person;
+  }
   if (!entry.semanticType) {
     throw new ParseError(`Lexicon entry ${conceptId} is missing semanticType`);
   }

@@ -1,5 +1,5 @@
 import { encodeFrame } from "../lang/encoder.js";
-import { EXAMPLE_LANGUAGE } from "../lang/example-language.js";
+import { randomLanguage } from "../lang/random-language.js";
 import {
   NPC,
   makeStartingNPCs,
@@ -11,7 +11,9 @@ import {
 // utterances with English glosses. Engine lives in ./village.ts so the
 // HTML viewer can share it.
 
-const LANG = EXAMPLE_LANGUAGE;
+// Deterministic generated language — same (seed, difficulty) always
+// produces the same LanguageSpec. See src/lang/random-language.ts.
+const LANG = randomLanguage("banana", "simple");
 
 function bar(pct: number, width = 8): string {
   const filled = Math.round((pct / 100) * width);
@@ -36,16 +38,30 @@ function printLexicon(): void {
     Locations: ["FOREST", "MEADOW", "FORGE", "CAVE"],
     NPCs: ["WOODSMAN", "SMITH"],
   };
-  console.log("Lexicon (concept → stem):");
+  console.log("Lexicon (stem = concept):");
   for (const [group, ids] of Object.entries(used)) {
     const pairs = ids
       .map((c) => `${LANG.lexicon[c]?.stem ?? "??"}=${c}`)
       .join("  ");
     console.log(`  ${group.padEnd(10)} ${pairs}`);
   }
-  console.log(
-    "Affixes: -n=ACC  -ra=DAT  -to=PAST  (NOM, present, sg are unmarked)",
-  );
+  if (LANG.difficulty === "simple") {
+    const q = LANG.particles?.Q;
+    const imp = LANG.particles?.IMP;
+    const parts = [`order=${LANG.syntax.wordOrder}`];
+    if (q) parts.push(`Q-particle="${q.form}" (${q.position})`);
+    if (imp) parts.push(`IMP-particle="${imp.form}" (${imp.position})`);
+    console.log(`Morphology: ${parts.join("  ")}`);
+    console.log("            (case, number, tense all unmarked)");
+  } else {
+    const m = LANG.morphology;
+    const fmt = (a: { form: string; position: "prefix" | "suffix" }) =>
+      a.form === "" ? "∅" : a.position === "prefix" ? `${a.form}-` : `-${a.form}`;
+    console.log(
+      `Affixes: ACC=${fmt(m.case.ACC)}  DAT=${fmt(m.case.DAT)}  ` +
+        `PL=${fmt(m.number.pl)}  PAST=${fmt(m.tense.past)}  FUT=${fmt(m.tense.future)}`,
+    );
+  }
   console.log();
 }
 
@@ -54,7 +70,8 @@ function main(): void {
   const npcs = makeStartingNPCs();
 
   const TICKS = 18;
-  console.log(`=== Village sim — language: ${LANG.id} (SOV, nom-acc) ===\n`);
+  const tag = `${LANG.syntax.wordOrder}, ${LANG.morphology.alignment}, ${LANG.difficulty ?? "full"}-mode`;
+  console.log(`=== Village sim — language: ${LANG.id} (${tag}) ===\n`);
   printLexicon();
 
   for (let t = 1; t <= TICKS; t++) {
@@ -69,9 +86,12 @@ function main(): void {
     for (const { npc, decision } of entries) {
       console.log(preStatus.get(npc) ?? statusLine(npc));
       const conlang = encodeFrame(LANG, decision.frame);
-      const tenseTag = decision.frame.tense ? "/" + decision.frame.tense : "";
       console.log(`     « ${conlang} »`);
-      console.log(`       ${decision.gloss}  [${decision.frame.predicate}${tenseTag}]`);
+      const schema = JSON.stringify(decision.frame, null, 2)
+        .split("\n")
+        .map((l) => `       ${l}`)
+        .join("\n");
+      console.log(schema);
     }
   }
 }

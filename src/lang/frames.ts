@@ -132,6 +132,17 @@ export const FRAMES: Record<string, FrameSpec> = {
       { name: "patient", types: ["ITEM"],    grammar: "object" },
     ],
   },
+  BE_STATE: {
+    // Animate-bears-a-property. Carries greetings ("you good?"/"I'm good")
+    // and any other "X is <quality>" proposition. ABSTRACT-typed `state`
+    // is the hook for properties; "not good" rides on the `negated` flag.
+    id: "BE_STATE",
+    category: "state",
+    roles: [
+      { name: "experiencer", types: ["ANIMATE"],  grammar: "subject" },
+      { name: "state",       types: ["ABSTRACT"], grammar: "object" },
+    ],
+  },
 };
 
 // ─── Filled frames ──────────────────────────────────────────────
@@ -151,8 +162,19 @@ export const EntityRef = z.object({
 });
 export type EntityRef = z.infer<typeof EntityRef>;
 
-export const Mood = z.enum(["declarative", "interrogative", "imperative"]);
+// Mood is just declarative vs imperative now. Question-ness is carried
+// implicitly by the presence of an "unknown" deictic filler in some role.
+export const Mood = z.enum(["declarative", "imperative"]);
 export type Mood = z.infer<typeof Mood>;
+
+// Deictic / pronominal role fillers. Unlike EntityRef they don't carry a
+// conceptId — their referent is fixed by speech context:
+//   self      — 1st person (the speaker)
+//   listener  — 2nd person (the addressee)
+//   reference — 3rd person anaphor (he/she/it/they; salient prior referent)
+//   unknown   — wh-pronoun (the role being asked about; ≤1 per frame)
+export const Pronoun = z.enum(["self", "listener", "reference", "unknown"]);
+export type Pronoun = z.infer<typeof Pronoun>;
 
 // Forward-declared types so RoleFiller and FilledFrame can reference each
 // other recursively.
@@ -169,7 +191,7 @@ export type FilledFrame = {
 
 export type RoleFiller =
   | EntityRef
-  | "?"
+  | Pronoun
   | { kind: "frame"; frame: FilledFrame };
 
 export const FilledFrame: z.ZodType<FilledFrame> = z.lazy(() =>
@@ -185,14 +207,22 @@ export const FilledFrame: z.ZodType<FilledFrame> = z.lazy(() =>
 export const RoleFiller: z.ZodType<RoleFiller> = z.lazy(() =>
   z.union([
     EntityRef,
-    z.literal("?"),
+    Pronoun,
     z.object({ kind: z.literal("frame"), frame: FilledFrame }),
   ]),
 );
 
 // Helpers to discriminate filler kinds.
-export function isWildcard(f: RoleFiller): f is "?" {
-  return f === "?";
+export function isPronoun(f: RoleFiller): f is Pronoun {
+  return typeof f === "string";
+}
+export function isUnknown(f: RoleFiller): f is "unknown" {
+  return f === "unknown";
+}
+export function isDeicticPerson(
+  f: RoleFiller,
+): f is "self" | "listener" | "reference" {
+  return f === "self" || f === "listener" || f === "reference";
 }
 export function isNestedFrame(
   f: RoleFiller,
@@ -219,8 +249,9 @@ export function numberOf(r: EntityRef): Number_ {
 
 // Validate that a FilledFrame is well-formed against its frame definition:
 // every required role is filled, fillers respect type restrictions, at most
-// one role is the "?" wildcard (and only in interrogative mood), nested
-// frames are only used in roles that allow them.
+// one role is the "unknown" wh-pronoun, deictic 1st/2nd-person fillers are
+// only used in animate-accepting roles, nested frames are only used in
+// roles that allow them.
 const MAX_NESTING_DEPTH = 3;
 
 export function validateFilledFrame(filled: FilledFrame, depth = 1): void {
@@ -237,14 +268,24 @@ export function validateFilledFrame(filled: FilledFrame, depth = 1): void {
     }
   }
 
-  let wildcards = 0;
+  let unknownCount = 0;
   for (const role of frame.roles) {
     const filler = filled.roles[role.name];
     if (filler === undefined) {
       throw new Error(`Frame ${frame.id} missing role "${role.name}"`);
     }
-    if (isWildcard(filler)) {
-      wildcards++;
+    if (isUnknown(filler)) {
+      unknownCount++;
+      continue;
+    }
+    if (isDeicticPerson(filler)) {
+      // self/listener refer to interlocutors (animate); reference can stand
+      // in for any prior salient entity, so accepts whatever the role allows.
+      if ((filler === "self" || filler === "listener") && !role.types.includes("ANIMATE")) {
+        throw new Error(
+          `Frame ${frame.id} role "${role.name}" expects ${role.types.join("|")}; "${filler}" is animate`,
+        );
+      }
       continue;
     }
     if (isNestedFrame(filler)) {
@@ -264,14 +305,8 @@ export function validateFilledFrame(filled: FilledFrame, depth = 1): void {
     }
   }
 
-  if (wildcards > 1) {
-    throw new Error(`Frame ${frame.id} has ${wildcards} "?" wildcards (max 1)`);
-  }
-  if (wildcards === 1 && filled.mood !== "interrogative") {
-    throw new Error(`Wildcard "?" requires interrogative mood`);
-  }
-  if (wildcards === 0 && filled.mood === "interrogative") {
-    throw new Error(`Interrogative mood requires exactly one "?" wildcard`);
+  if (unknownCount > 1) {
+    throw new Error(`Frame ${frame.id} has ${unknownCount} "unknown" fillers (max 1)`);
   }
   if (filled.mood === "imperative" && frame.category !== "action") {
     throw new Error(

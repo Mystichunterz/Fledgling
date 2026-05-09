@@ -24,6 +24,7 @@ export const EXAMPLE_LANGUAGE: LanguageSpec = {
     SAY:   { stem: "loma", category: "verb", frame: "SAY" },
     MAKE:  { stem: "fado", category: "verb", frame: "MAKE" },
     EAT:   { stem: "bisu", category: "verb", frame: "EAT" },
+    BE_STATE: { stem: "kiri", category: "verb", frame: "BE_STATE" },
 
     // Items
     FLINT:   { stem: "pira",  category: "noun", semanticType: "ITEM" },
@@ -42,14 +43,20 @@ export const EXAMPLE_LANGUAGE: LanguageSpec = {
     SMITH:    { stem: "tova", category: "noun", semanticType: "ANIMATE" },
     WOODSMAN: { stem: "henu", category: "noun", semanticType: "ANIMATE" },
 
-    // Pronouns (inherently singular)
-    PLAYER:    { stem: "ne", category: "pronoun", semanticType: "ANIMATE", inherentNumber: "sg" },
-    ADDRESSEE: { stem: "ti", category: "pronoun", semanticType: "ANIMATE", inherentNumber: "sg" },
+    // Abstract qualities / properties (ABSTRACT semantic type)
+    GOOD: { stem: "tama", category: "noun", semanticType: "ABSTRACT" },
+
+    // Pronouns (inherently singular). Keyed by deictic person — these are
+    // the surface forms for the "self" / "listener" / "reference" fillers.
+    PRONOUN_SELF:      { stem: "ne",  category: "pronoun", person: "self",      semanticType: "ANIMATE", inherentNumber: "sg" },
+    PRONOUN_LISTENER:  { stem: "ti",  category: "pronoun", person: "listener",  semanticType: "ANIMATE", inherentNumber: "sg" },
+    PRONOUN_REFERENCE: { stem: "sa",  category: "pronoun", person: "reference", semanticType: "ANIMATE", inherentNumber: "sg" },
 
     // Wh-words (one per role type)
     WH_ANIMATE:  { stem: "ko", category: "wh", semanticType: "ANIMATE" },
     WH_ITEM:     { stem: "ma", category: "wh", semanticType: "ITEM" },
     WH_LOCATION: { stem: "vo", category: "wh", semanticType: "LOCATION" },
+    WH_ABSTRACT: { stem: "ke", category: "wh", semanticType: "ABSTRACT" },
   },
   morphology: {
     alignment: "nom-acc",

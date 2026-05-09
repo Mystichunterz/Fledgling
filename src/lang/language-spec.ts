@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Mood, Number_, RoleType, Tense } from "./frames.js";
+import { Mood, Number_, Pronoun, RoleType, Tense } from "./frames.js";
 import { Phonology } from "./phonology.js";
 
 // LanguageSpec v2 — extended with featurised phonology, multi-affix
@@ -31,11 +31,24 @@ export const LexiconEntry = z.object({
   semanticType: RoleType.optional(),
   // For verbs: the frame ID this verb realizes (one stem per frame in v1).
   frame: z.string().optional(),
-  // For pronouns: inherent number (PLAYER is sg; "we" would be pl).
-  // Currently every pronoun is sg; defined for forward compatibility.
+  // For pronouns: which deictic person this entry realizes. Pronouns are
+  // keyed in the lexicon by `PRONOUN_<person>` (see PRONOUN_ID_FOR), but
+  // the canonical identity is `person`, not the lexicon key.
+  person: Pronoun.optional(),
+  // For pronouns: inherent number ("self"/"listener" are sg; a "we" would
+  // be pl). Currently every pronoun is sg; defined for forward compatibility.
   inherentNumber: Number_.optional(),
 });
 export type LexiconEntry = z.infer<typeof LexiconEntry>;
+
+// Conventional lexicon keys for pronoun entries. Pronoun fillers in a
+// FilledFrame are bare strings ("self" / "listener" / "reference"); their
+// surface form is looked up by these keys.
+export const PRONOUN_ID_FOR: Record<"self" | "listener" | "reference", string> = {
+  self: "PRONOUN_SELF",
+  listener: "PRONOUN_LISTENER",
+  reference: "PRONOUN_REFERENCE",
+};
 
 // 6 possible word orders. Order is over Subject / Verb / Object;
 // oblique arguments are placed by `obliquePosition` separately.
@@ -123,29 +136,33 @@ export const LanguageSpec = z.object({
 export type LanguageSpec = z.infer<typeof LanguageSpec>;
 
 // Conventional concept IDs for the wh-words. The lexicon must contain
-// one wh-entry per RoleType the player can ask about. ABSTRACT and EVENT
-// are not directly askable (they appear as nested content, not as roles
-// the player would wildcard), so they're omitted.
+// one wh-entry per RoleType the player can ask about. ABSTRACT became
+// directly askable with the BE_STATE frame (e.g. "you good?" wildcards
+// the ABSTRACT-typed `state` role). EVENT is still nested-only.
 export const WH_FOR_TYPE: Partial<Record<RoleType, string>> = {
   ANIMATE: "WH_ANIMATE",
   ITEM: "WH_ITEM",
   LOCATION: "WH_LOCATION",
+  ABSTRACT: "WH_ABSTRACT",
 };
 
 // Round-trip mapping between the Mood enum (semantic, used in FilledFrame)
 // and the MoodTag enum (morphological, keys into spec.morphology.mood).
+//
+// MoodTag retains a Q tag because the morphology still needs a slot for
+// the question-marking affix/particle even though "interrogative" is no
+// longer a Mood — question-ness is signalled by an "unknown" filler.
 export function moodTagOf(mood: Mood): MoodTag {
   switch (mood) {
     case "declarative": return "DECL";
-    case "interrogative": return "Q";
-    case "imperative": return "IMP";
+    case "imperative":  return "IMP";
   }
 }
 
 export function moodFromTag(tag: MoodTag): Mood {
   switch (tag) {
     case "DECL": return "declarative";
-    case "Q":    return "interrogative";
+    case "Q":    return "declarative"; // question is a declarative frame + unknown filler
     case "IMP":  return "imperative";
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FRAMES, FilledFrame, RoleFiller } from "./frames.js";
+import { FRAMES, FilledFrame, RoleFiller, isEntityRef, isPronoun } from "./frames.js";
 import { encodeFrame } from "./encoder.js";
 import { ParseError, decodeText } from "./decoder.js";
 import { EXAMPLE_LANGUAGE } from "./example-language.js";
@@ -7,9 +7,11 @@ import { randomLanguage } from "./random-language.js";
 
 const L = EXAMPLE_LANGUAGE;
 
-// Concepts grouped by semantic type for the example language.
+// Concepts grouped by semantic type for the example language. Deictic
+// pronouns ("self"/"listener"/"reference") and the wh "unknown" filler are
+// not concept IDs — they're enumerated separately in the frame generator.
 const BY_TYPE = {
-  ANIMATE: ["SMITH", "WOODSMAN", "PLAYER", "ADDRESSEE"],
+  ANIMATE: ["SMITH", "WOODSMAN"],
   ITEM: ["FLINT", "STICK", "LIGHTER"],
   LOCATION: ["FOREST", "CAVE", "FORGE"],
 } as const;
@@ -28,14 +30,15 @@ describe("encoder spot checks (SOV, suffixing, nom-acc)", () => {
     expect(encodeFrame(L, frame)).toBe("tova piran selu");
   });
 
-  it("encodes a question with object wildcard", () => {
-    // 'what does the smith want?'
+  it("encodes a question with object unknown filler", () => {
+    // 'what does the smith want?' — "unknown" filler implies the question;
+    // mood stays declarative.
     const frame: FilledFrame = {
       predicate: "WANT",
-      mood: "interrogative",
+      mood: "declarative",
       roles: {
         wanter: { type: "ANIMATE", conceptId: "SMITH" },
-        desired: "?",
+        desired: "unknown",
       },
     };
     expect(encodeFrame(L, frame)).toBe("tova man seluli");
@@ -48,7 +51,7 @@ describe("encoder spot checks (SOV, suffixing, nom-acc)", () => {
       predicate: "GIVE",
       mood: "declarative",
       roles: {
-        agent: { type: "ANIMATE", conceptId: "PLAYER" },
+        agent: "self",
         recipient: { type: "ANIMATE", conceptId: "SMITH" },
         theme: { type: "ITEM", conceptId: "FLINT" },
       },
@@ -60,22 +63,22 @@ describe("encoder spot checks (SOV, suffixing, nom-acc)", () => {
     // 'where is the flint?'
     const frame: FilledFrame = {
       predicate: "BE_AT",
-      mood: "interrogative",
+      mood: "declarative",
       roles: {
         figure: { type: "ITEM", conceptId: "FLINT" },
-        ground: "?",
+        ground: "unknown",
       },
     };
     expect(encodeFrame(L, frame)).toBe("pira nokili vora");
   });
 
   it("encodes an imperative TAKE", () => {
-    // 'take the flint!' — addressed to the player
+    // 'take the flint!' — addressed to the listener
     const frame: FilledFrame = {
       predicate: "TAKE",
       mood: "imperative",
       roles: {
-        agent: { type: "ANIMATE", conceptId: "ADDRESSEE" },
+        agent: "listener",
         theme: { type: "ITEM", conceptId: "FLINT" },
       },
     };
@@ -87,7 +90,7 @@ describe("encoder spot checks (SOV, suffixing, nom-acc)", () => {
       predicate: "WANT",
       mood: "imperative",
       roles: {
-        wanter: { type: "ANIMATE", conceptId: "ADDRESSEE" },
+        wanter: "listener",
         desired: { type: "ITEM", conceptId: "FLINT" },
       },
     };
@@ -100,7 +103,7 @@ describe("encoder spot checks (SOV, suffixing, nom-acc)", () => {
       predicate: "MOVE",
       mood: "declarative",
       roles: {
-        agent: { type: "ANIMATE", conceptId: "ADDRESSEE" },
+        agent: "listener",
         destination: { type: "LOCATION", conceptId: "CAVE" },
       },
     };
@@ -120,13 +123,13 @@ describe("decoder spot checks", () => {
     });
   });
 
-  it("decodes an object-wildcard question", () => {
+  it("decodes an object-unknown question", () => {
     expect(decodeText(L, "tova man seluli")).toEqual({
       predicate: "WANT",
-      mood: "interrogative",
+      mood: "declarative",
       roles: {
         wanter: { type: "ANIMATE", conceptId: "SMITH" },
-        desired: "?",
+        desired: "unknown",
       },
     });
   });
@@ -136,7 +139,7 @@ describe("decoder spot checks", () => {
       predicate: "TAKE",
       mood: "imperative",
       roles: {
-        agent: { type: "ANIMATE", conceptId: "ADDRESSEE" },
+        agent: "listener",
         theme: { type: "ITEM", conceptId: "FLINT" },
       },
     });
@@ -169,11 +172,13 @@ describe("decoder spot checks", () => {
 
 // Generate every well-formed FilledFrame for the example language's lexicon
 // and assert decode(encode(F)) === F. This is the load-bearing correctness
-// invariant for the translator.
+// invariant for the translator. Variants:
+//   - declarative + concrete fillers
+//   - imperative + concrete fillers (action frames only)
+//   - declarative + one "unknown" filler (wh-question)
+//   - declarative + a deictic pronoun in an animate-accepting role
 function* enumerateFilledFrames(): Generator<FilledFrame> {
   for (const frame of Object.values(FRAMES)) {
-    // For each role, the candidate fillers are: each compatible concept,
-    // PLUS the "?" wildcard (only used in interrogative mood).
     const fillerOptions: RoleFiller[][] = frame.roles.map((role) => {
       const concrete: RoleFiller[] = [];
       for (const t of role.types) {
@@ -194,7 +199,7 @@ function* enumerateFilledFrames(): Generator<FilledFrame> {
       yield { predicate: frame.id, mood: "declarative", roles };
     }
 
-    // Imperative variants share the wildcard-free shape of declaratives,
+    // Imperative variants share the unknown-free shape of declaratives,
     // but only action frames support imperative semantics.
     if (frame.category === "action") {
       for (const combo of cartesian(fillerOptions)) {
@@ -204,22 +209,46 @@ function* enumerateFilledFrames(): Generator<FilledFrame> {
       }
     }
 
-    // Interrogative variants: one role is wildcarded, others are concrete.
-    for (let wildIdx = 0; wildIdx < frame.roles.length; wildIdx++) {
+    // Wh-question variants: one role takes "unknown", others stay concrete.
+    // Mood remains declarative; question-ness rides on the unknown filler.
+    for (let unkIdx = 0; unkIdx < frame.roles.length; unkIdx++) {
       const otherOptions = fillerOptions.map((opts, i) =>
-        i === wildIdx ? ([] as RoleFiller[]) : opts,
+        i === unkIdx ? ([] as RoleFiller[]) : opts,
       );
-      // Skip wildcards on roles whose types span multiple semantic types —
-      // the wh-word picks role.types[0], so the round-trip would only
-      // recover that one type, not a multi-type role faithfully.
-      // (BE_AT.figure is the only such role; we still test it as ITEM-only
-      //  via the primary type.)
       for (const combo of cartesian(otherOptions)) {
         const roles: Record<string, RoleFiller> = {};
         frame.roles.forEach((r, i) => {
-          roles[r.name] = i === wildIdx ? "?" : combo[i]!;
+          roles[r.name] = i === unkIdx ? "unknown" : combo[i]!;
         });
-        yield { predicate: frame.id, mood: "interrogative", roles };
+        yield { predicate: frame.id, mood: "declarative", roles };
+      }
+    }
+
+    // Deictic-pronoun variants: each animate-accepting role tries each of
+    // self/listener/reference (the others stay at the first concrete option).
+    const animateRoleIdxs: number[] = [];
+    frame.roles.forEach((r, i) => {
+      if (r.types.includes("ANIMATE")) animateRoleIdxs.push(i);
+    });
+    for (const idx of animateRoleIdxs) {
+      for (const person of ["self", "listener", "reference"] as const) {
+        // Need a default for every other role — pick the first concrete.
+        const baseRoles: Record<string, RoleFiller> = {};
+        let canBuild = true;
+        frame.roles.forEach((r, i) => {
+          if (i === idx) {
+            baseRoles[r.name] = person;
+            return;
+          }
+          const first = fillerOptions[i]?.[0];
+          if (!first) {
+            canBuild = false;
+            return;
+          }
+          baseRoles[r.name] = first;
+        });
+        if (!canBuild) continue;
+        yield { predicate: frame.id, mood: "declarative", roles: baseRoles };
       }
     }
   }
@@ -333,12 +362,10 @@ function framesEqual(a: FilledFrame, b: FilledFrame): boolean {
   for (const k of aKeys) {
     const av = a.roles[k];
     const bv = b.roles[k];
-    if (av === "?" || bv === "?") {
+    if (av === undefined || bv === undefined) return false;
+    if (isPronoun(av) || isPronoun(bv)) {
       if (av !== bv) return false;
-    } else if (
-      av && bv && typeof av === "object" && typeof bv === "object"
-      && "conceptId" in av && "conceptId" in bv
-    ) {
+    } else if (isEntityRef(av) && isEntityRef(bv)) {
       if (av.type !== bv.type || av.conceptId !== bv.conceptId) return false;
     } else {
       return false;

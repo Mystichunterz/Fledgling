@@ -2,15 +2,18 @@ import {
   FRAMES,
   FilledFrame,
   RoleSpec,
+  isDeicticPerson,
   isEntityRef,
   isNestedFrame,
-  isWildcard,
+  isUnknown,
   numberOf,
   validateFilledFrame,
 } from "./frames.js";
 import {
   Affix,
   LanguageSpec,
+  MoodTag,
+  PRONOUN_ID_FOR,
   WH_FOR_TYPE,
   caseForGrammar,
   moodTagOf,
@@ -23,8 +26,9 @@ import {
 
 export type GlossedWord = {
   surface: string;
-  // Display label for the stem (the lexeme being expressed).
-  // Concept IDs (e.g. "FLINT") for nouns and "?" for wildcards.
+  // Display label for the stem (the lexeme being expressed). Concept IDs
+  // ("FLINT") for nouns; uppercase pronoun person ("SELF" / "LISTENER" /
+  // "REFERENCE") for deictic pronouns; "?<TYPE>" for the wh-pronoun.
   label: string;
   // Affix tags attached to the stem, in surface order. e.g. ["ACC"], ["Q"].
   tags: string[];
@@ -67,7 +71,7 @@ function glossWordForRole(
   let label: string;
   let stem: string;
   let number: "sg" | "pl" = "sg";
-  if (isWildcard(filler)) {
+  if (isUnknown(filler)) {
     const primaryType = role.types[0]!;
     const whConcept = WH_FOR_TYPE[primaryType];
     if (!whConcept) {
@@ -76,6 +80,12 @@ function glossWordForRole(
     const entry = spec.lexicon[whConcept];
     if (!entry) throw new Error(`Missing wh-word ${whConcept}`);
     label = `?${primaryType}`;
+    stem = entry.stem;
+  } else if (isDeicticPerson(filler)) {
+    const id = PRONOUN_ID_FOR[filler];
+    const entry = spec.lexicon[id];
+    if (!entry) throw new Error(`Missing pronoun ${id}`);
+    label = filler.toUpperCase();
     stem = entry.stem;
   } else {
     // EntityRef (nested-frame case is handled by the caller).
@@ -135,11 +145,15 @@ export function glossFrame(
     }
   }
 
+  // Question-ness rides on the presence of an "unknown" filler — that's
+  // what selects the Q affix / Q particle. Otherwise it's IMP for
+  // imperative frames and DECL for declarative.
+  const hasUnknown = Object.values(filled.roles).some(isUnknown);
   // Build the verb word. Stem + tense + (agreement-number) + mood.
   const verb = verbForFrame(spec, frame.id);
   const tense = tenseOf(filled);
   const tenseAffix = spec.morphology.tense[tense];
-  const moodTag = moodTagOf(filled.mood);
+  const moodTag: MoodTag = hasUnknown ? "Q" : moodTagOf(filled.mood);
   const moodAffix = spec.morphology.mood[moodTag];
 
   let verbSurface = applyAffix(verb.stem, tenseAffix);

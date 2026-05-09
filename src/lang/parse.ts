@@ -19,12 +19,13 @@ export interface ParseOptions {
 
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 
-// Pull the entity-side concept IDs out of a LanguageSpec lexicon.
-// Predicates (verbs) and wh-words are filtered: they're not valid fillers
-// for entity reference roles.
+// Pull the lexical entity concept IDs out of a LanguageSpec lexicon.
+// Verbs, pronouns, and wh-words are filtered: they're not valid conceptIds
+// for EntityRef fillers (pronouns are deictic literals; wh-words are
+// realised by the "unknown" filler).
 export function conceptIdsFromLanguage(spec: LanguageSpec): string[] {
   return Object.entries(spec.lexicon)
-    .filter(([, entry]) => entry.category === "noun" || entry.category === "pronoun")
+    .filter(([, entry]) => entry.category === "noun")
     .map(([id]) => id);
 }
 
@@ -111,45 +112,51 @@ ${frameLines}
 # Output shape
 {
   "predicate": ${predicateList},
-  "mood": "declarative" | "interrogative" | "imperative",
+  "mood": "declarative" | "imperative",            // questions stay declarative; mark with "unknown" filler
   "tense": "past" | "present" | "future",          // optional, default present
   "negated": boolean,                                // optional, default false
   "roles": { "<roleName>": <RoleFiller>, ... }
 }
 
 A <RoleFiller> is exactly one of:
-  A) { "type": "ANIMATE"|"ITEM"|"LOCATION", "conceptId": "<ID>", "number": "sg"|"pl" (optional) }
-  B) "?"   — the unknown role in a wh-question; allowed at most once, and only when mood = "interrogative"
-  C) { "kind": "frame", "frame": <FilledFrame> }   — only valid for SAY.content (1 level of nesting max)
+  A) { "type": "ANIMATE"|"ITEM"|"LOCATION", "conceptId": "<ID>", "number": "sg"|"pl" (optional) } — a lexical entity
+  B) "self"      — 1st person pronoun (I, me, my, mine)
+  C) "listener"  — 2nd person pronoun (you, your, yours)
+  D) "reference" — 3rd person anaphoric pronoun (he, she, it, they, him, her, them, his, hers, its, their)
+  E) "unknown"   — wh-pronoun (who, what, where, …); marks a question; allowed at most once per frame
+  F) { "kind": "frame", "frame": <FilledFrame> } — only valid for SAY.content (1 level of nesting max)
 
 # Hard constraints
 - Every role of the chosen predicate must be filled.
-- mood = "interrogative" requires exactly one "?" filler somewhere.
+- A frame may contain at most one "unknown" filler. Its presence makes the frame a question — keep mood = "declarative".
 - mood = "imperative" requires an action-category frame (GIVE, TAKE, MOVE, SAY, MAKE, EAT).
-- "I", "me", "my", "mine" map to conceptId "PLAYER".
-- "you", "your", "yours" map to conceptId "ADDRESSEE".
-- All other conceptIds MUST be drawn verbatim from this list:
+- "self" and "listener" only fill roles that accept ANIMATE.
+- conceptIds for lexical fillers MUST be drawn verbatim from this list:
   ${conceptIds.join(", ")}
   If the sentence references something outside this list, pick the closest
-  available concept rather than inventing an ID.
+  available concept rather than inventing an ID. Do NOT invent IDs like
+  "PLAYER" or "ADDRESSEE" — use the deictic pronouns above instead.
 
 # Examples
 Input: I want flint
-Output: {"predicate":"WANT","mood":"declarative","roles":{"wanter":{"type":"ANIMATE","conceptId":"PLAYER"},"desired":{"type":"ITEM","conceptId":"FLINT"}}}
+Output: {"predicate":"WANT","mood":"declarative","roles":{"wanter":"self","desired":{"type":"ITEM","conceptId":"FLINT"}}}
 
 Input: What do you want?
-Output: {"predicate":"WANT","mood":"interrogative","roles":{"wanter":{"type":"ANIMATE","conceptId":"ADDRESSEE"},"desired":"?"}}
+Output: {"predicate":"WANT","mood":"declarative","roles":{"wanter":"listener","desired":"unknown"}}
 
 Input: Where is the flint?
-Output: {"predicate":"BE_AT","mood":"interrogative","roles":{"figure":{"type":"ITEM","conceptId":"FLINT"},"ground":"?"}}
+Output: {"predicate":"BE_AT","mood":"declarative","roles":{"figure":{"type":"ITEM","conceptId":"FLINT"},"ground":"unknown"}}
 
 Input: Give me the stick!
-Output: {"predicate":"GIVE","mood":"imperative","roles":{"agent":{"type":"ANIMATE","conceptId":"ADDRESSEE"},"recipient":{"type":"ANIMATE","conceptId":"PLAYER"},"theme":{"type":"ITEM","conceptId":"STICK"}}}
+Output: {"predicate":"GIVE","mood":"imperative","roles":{"agent":"listener","recipient":"self","theme":{"type":"ITEM","conceptId":"STICK"}}}
+
+Input: She has the bread.
+Output: {"predicate":"HAVE","mood":"declarative","roles":{"owner":"reference","theme":{"type":"ITEM","conceptId":"BREAD"}}}
 
 Input: The smith does not have bread.
 Output: {"predicate":"HAVE","mood":"declarative","negated":true,"roles":{"owner":{"type":"ANIMATE","conceptId":"SMITH"},"theme":{"type":"ITEM","conceptId":"BREAD"}}}
 
 Input: The smith said you want flint.
-Output: {"predicate":"SAY","mood":"declarative","tense":"past","roles":{"speaker":{"type":"ANIMATE","conceptId":"SMITH"},"recipient":{"type":"ANIMATE","conceptId":"PLAYER"},"content":{"kind":"frame","frame":{"predicate":"WANT","mood":"declarative","roles":{"wanter":{"type":"ANIMATE","conceptId":"ADDRESSEE"},"desired":{"type":"ITEM","conceptId":"FLINT"}}}}}}
+Output: {"predicate":"SAY","mood":"declarative","tense":"past","roles":{"speaker":{"type":"ANIMATE","conceptId":"SMITH"},"recipient":"self","content":{"kind":"frame","frame":{"predicate":"WANT","mood":"declarative","roles":{"wanter":"listener","desired":{"type":"ITEM","conceptId":"FLINT"}}}}}}
 `;
 }

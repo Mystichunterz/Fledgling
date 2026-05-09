@@ -32,7 +32,7 @@ describe("v2: new frames", () => {
         predicate: "SEE",
         mood: "declarative",
         roles: {
-          viewer: { type: "ANIMATE", conceptId: "PLAYER" },
+          viewer: "self",
           target: { type: "LOCATION", conceptId: "MEADOW" },
         },
       }),
@@ -66,7 +66,7 @@ describe("v2: new frames", () => {
       mood: "declarative",
       roles: {
         speaker: { type: "ANIMATE", conceptId: "SMITH" },
-        recipient: { type: "ANIMATE", conceptId: "PLAYER" },
+        recipient: "self",
         content: { kind: "frame", frame: inner },
       },
     };
@@ -213,7 +213,7 @@ describe("v2: templates & rephrase", () => {
       predicate: "GIVE",
       mood: "declarative",
       roles: {
-        agent: { type: "ANIMATE", conceptId: "PLAYER" },
+        agent: "self",
         recipient: { type: "ANIMATE", conceptId: "SMITH" },
         theme: { type: "ITEM", conceptId: "FLINT" },
       },

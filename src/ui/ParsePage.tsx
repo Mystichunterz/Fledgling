@@ -5,7 +5,8 @@ import {
   RoleFiller,
   isEntityRef,
   isNestedFrame,
-  isWildcard,
+  isPronoun,
+  isUnknown,
   validateFilledFrame,
 } from "../lang/frames.js";
 import { encodeFrame } from "../lang/encoder.js";
@@ -234,8 +235,12 @@ function RoleBind({ name, filler }: { name: string; filler: RoleFiller }) {
   return (
     <div className="role-bind">
       <span className="role-tag">{name}</span>
-      {isWildcard(filler) ? (
+      {isUnknown(filler) ? (
         <span className="filler wh">?</span>
+      ) : isPronoun(filler) ? (
+        <span className="filler">
+          <span className="muted">{filler}</span>
+        </span>
       ) : isNestedFrame(filler) ? (
         <span className="filler">
           <span className="muted">[nested]</span> <NestedInline frame={filler.frame} />
@@ -253,7 +258,7 @@ function RoleBind({ name, filler }: { name: string; filler: RoleFiller }) {
 function NestedInline({ frame }: { frame: FilledFrame }) {
   const parts: string[] = [`${frame.predicate}/${frame.mood}`];
   for (const [name, filler] of Object.entries(frame.roles)) {
-    if (isWildcard(filler)) parts.push(`${name}=?`);
+    if (isPronoun(filler)) parts.push(`${name}=${filler}`);
     else if (isEntityRef(filler)) parts.push(`${name}=${filler.conceptId}`);
     else if (isNestedFrame(filler)) parts.push(`${name}=[…]`);
   }

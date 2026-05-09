@@ -42,7 +42,7 @@
 
       body {
         display: grid;
-        grid-template-rows: auto 1fr auto;
+        grid-template-rows: auto 1fr auto auto auto;
         height: 100vh;
         overflow: hidden;
       }
@@ -277,10 +277,17 @@
         margin: 0 6px;
       }
 
-      .utter .gloss {
-        font-size: 12px;
+      .utter .schema {
+        font-family: var(--mono);
+        font-size: 11px;
         color: var(--ink-dim);
-        font-style: italic;
+        background: var(--bg-2);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 8px 12px;
+        margin: 4px 0 0;
+        white-space: pre;
+        overflow-x: auto;
       }
 
       footer {
@@ -322,7 +329,7 @@
         width: 130px;
         accent-color: var(--accent);
       }
-      footer .gloss-toggle {
+      footer .schema-toggle {
         display: flex;
         align-items: center;
         gap: 6px;
@@ -331,7 +338,7 @@
         cursor: pointer;
         user-select: none;
       }
-      footer .gloss-toggle input { accent-color: var(--accent-2); }
+      footer .schema-toggle input { accent-color: var(--accent-2); }
 
       /* Subtle scrollbar */
       ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -342,12 +349,89 @@
       }
       ::-webkit-scrollbar-thumb:hover { background: #2f2f5a; }
 
-      .stream.no-gloss .gloss { display: none; }
+      .stream.no-schema .schema { display: none; }
+
+      /* ─── Player command bar ─────────────────────────────────── */
+      .cmd {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: stretch;
+        gap: 0;
+        background: var(--bg-2);
+        border-top: 1px solid var(--line);
+      }
+      .cmd .addressee {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 12px;
+        border-right: 1px solid var(--line);
+        font-size: 11px;
+        color: var(--ink-faint);
+        background: var(--bg);
+      }
+      .cmd .addressee select {
+        appearance: none;
+        background: var(--bg-3);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 4px 22px 4px 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        cursor: pointer;
+        background-image: linear-gradient(45deg, transparent 50%, var(--ink-dim) 50%),
+          linear-gradient(135deg, var(--ink-dim) 50%, transparent 50%);
+        background-position: calc(100% - 12px) 50%, calc(100% - 8px) 50%;
+        background-size: 4px 4px;
+        background-repeat: no-repeat;
+      }
+      .cmd input[type="text"] {
+        background: var(--bg-2);
+        color: var(--ink);
+        border: 0;
+        padding: 12px 16px;
+        font-family: var(--serif);
+        font-size: 18px;
+        outline: none;
+        min-width: 0;
+      }
+      .cmd input[type="text"]::placeholder {
+        color: var(--ink-faint);
+        font-style: italic;
+      }
+      .cmd .send {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--ink-dim);
+        background: transparent;
+        border: 0;
+        border-left: 1px solid var(--line);
+        padding: 0 16px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .cmd .send:hover { color: var(--accent); }
+      .cmd-error {
+        display: none;
+        padding: 6px 16px;
+        background: var(--bg-2);
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+        color: var(--warn);
+        font-family: var(--mono);
+      }
+      .cmd-error.show { display: block; }
+
+      .utter.player .conlang { color: var(--accent); }
+      .utter.player .who .name { color: var(--accent); }
+      .utter.player .who .frame-tag { background: #2a1d0d; color: var(--accent); }
+      .utter.error .conlang { color: var(--warn); font-style: italic; font-size: 16px; }
     </style>
   </head>
   <body>
     <header>
-      <h1>Village sim<span class="sub">tovari · SOV · nom-acc</span></h1>
+      <h1>Village sim<span class="sub" id="header-meta">…</span></h1>
       <div class="tick-counter">tick <strong id="tick-num">0</strong></div>
     </header>
 
@@ -357,28 +441,35 @@
         <div class="lex">
           <h3>Lexicon</h3>
           <div id="lex"></div>
-          <div class="lex-group" style="margin-top: 12px">
-            <span class="grp">Affixes</span>
-            <div class="pairs">
-              <span class="pair"><b>-n</b> ACC</span>
-              <span class="pair"><b>-ra</b> DAT</span>
-              <span class="pair"><b>-to</b> PAST</span>
-              <span class="pair">NOM, sg, present unmarked</span>
-            </div>
-          </div>
+          <div id="morph" style="margin-top: 12px"></div>
         </div>
       </aside>
 
       <section class="stream" id="stream"></section>
     </main>
 
+    <div class="cmd-error" id="cmd-error"></div>
+    <form class="cmd" id="cmd-form" autocomplete="off">
+      <label class="addressee">
+        →
+        <select id="cmd-target" aria-label="Addressee"></select>
+      </label>
+      <input
+        type="text"
+        id="cmd-input"
+        placeholder="speak in the conlang… (try the verbs in the lexicon)"
+        spellcheck="false"
+      />
+      <button class="send" type="submit" id="cmd-send">say ⏎</button>
+    </form>
+
     <footer>
       <button id="play" class="primary">▶ Play</button>
       <button id="step">⏭ Step</button>
       <button id="reset">↻ Reset</button>
-      <label class="gloss-toggle">
-        <input type="checkbox" id="gloss-toggle" checked />
-        show gloss
+      <label class="schema-toggle">
+        <input type="checkbox" id="schema-toggle" checked />
+        show schema
       </label>
       <div class="speed">
         slow

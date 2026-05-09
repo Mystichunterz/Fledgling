@@ -4,17 +4,21 @@ import {
   FilledFrame,
   Mood,
   Number_,
+  Pronoun,
   RoleFiller,
   RoleSpec,
   isEntityRef,
   isNestedFrame,
-  isWildcard,
+  isPronoun,
+  isUnknown,
   numberOf,
   validateFilledFrame,
 } from "./frames.js";
 import {
   Affix,
   LanguageSpec,
+  MoodTag,
+  PRONOUN_ID_FOR,
   WH_FOR_TYPE,
   caseForGrammar,
   moodTagOf,
@@ -60,11 +64,24 @@ function whStem(spec: LanguageSpec, role: RoleSpec): string {
   return entry.stem;
 }
 
-// Read the stem for a non-wildcard, non-nested filler.
+// Read the stem for a lexical entity reference.
 function stemForRef(spec: LanguageSpec, ref: EntityRef): string {
   const entry = spec.lexicon[ref.conceptId];
   if (!entry) {
     throw new Error(`Language ${spec.id} missing concept ${ref.conceptId}`);
+  }
+  return entry.stem;
+}
+
+// Read the stem for a deictic pronoun (1st/2nd/3rd person).
+function pronounStem(
+  spec: LanguageSpec,
+  person: "self" | "listener" | "reference",
+): string {
+  const id = PRONOUN_ID_FOR[person];
+  const entry = spec.lexicon[id];
+  if (!entry) {
+    throw new Error(`Language ${spec.id} missing pronoun for ${person} (${id})`);
   }
   return entry.stem;
 }
@@ -75,13 +92,13 @@ function stemForRef(spec: LanguageSpec, ref: EntityRef): string {
 function wordForRole(
   spec: LanguageSpec,
   role: RoleSpec,
-  filler: EntityRef | "?",
+  filler: EntityRef | Pronoun,
 ): string {
   let stem: string;
   let number: Number_;
-  if (isWildcard(filler)) {
-    stem = whStem(spec, role);
-    number = "sg"; // wh-words are conventionally singular
+  if (isPronoun(filler)) {
+    stem = isUnknown(filler) ? whStem(spec, role) : pronounStem(spec, filler);
+    number = "sg"; // pronouns and wh-words are conventionally singular
   } else {
     stem = stemForRef(spec, filler);
     number = numberOf(filler);
@@ -99,6 +116,7 @@ function wordForVerb(
   spec: LanguageSpec,
   frame: FilledFrame,
   subjectNumber: Number_,
+  moodTag: MoodTag,
 ): string {
   const stem = verbForFrame(spec, frame.predicate);
   const tense = tenseOf(frame);
@@ -106,7 +124,6 @@ function wordForVerb(
   if (spec.syntax.agreement.subjectVerbNumber) {
     word = applyAffix(word, spec.morphology.number[subjectNumber]);
   }
-  const moodTag = moodTagOf(frame.mood);
   word = applyAffix(word, spec.morphology.mood[moodTag]);
   if (frame.negated && spec.syntax.negationStrategy === "affix") {
     word = applyAffix(word, spec.morphology.negation);
@@ -114,8 +131,8 @@ function wordForVerb(
   return word;
 }
 
-// Determine the subject's number from a frame. For nested-frame fillers in
-// subject position (theoretically possible), default to sg.
+// Determine the subject's number from a frame. Pronouns and nested-frame
+// fillers default to sg.
 function subjectNumberOf(spec: LanguageSpec, frame: FilledFrame): Number_ {
   const frameSpec = FRAMES[frame.predicate];
   if (!frameSpec) return "sg";
@@ -123,7 +140,7 @@ function subjectNumberOf(spec: LanguageSpec, frame: FilledFrame): Number_ {
   if (!subjectRole) return "sg";
   const filler = frame.roles[subjectRole.name];
   if (filler === undefined) return "sg";
-  if (isWildcard(filler)) return "sg";
+  if (isPronoun(filler)) return "sg";
   if (isEntityRef(filler)) return numberOf(filler);
   return "sg";
 }
@@ -168,6 +185,11 @@ function encodeFrameInner(spec: LanguageSpec, frame: FilledFrame): string {
   if (!frameSpec) throw new Error(`Unknown frame: ${frame.predicate}`);
 
   const subjectNumber = subjectNumberOf(spec, frame);
+  // Question-ness rides on the presence of an "unknown" filler. The
+  // morphological mood tag picks Q in that case so the verb gets the
+  // interrogative affix; otherwise it's whatever the frame's mood says.
+  const hasUnknown = Object.values(frame.roles).some(isUnknown);
+  const moodTag: MoodTag = hasUnknown ? "Q" : moodTagOf(frame.mood);
 
   // Build a word per role using the frame's grammatical assignments.
   const subjectWords: string[] = [];
@@ -184,7 +206,7 @@ function encodeFrameInner(spec: LanguageSpec, frame: FilledFrame): string {
     }
   }
 
-  const verbWord = wordForVerb(spec, frame, subjectNumber);
+  const verbWord = wordForVerb(spec, frame, subjectNumber, moodTag);
 
   // Use the canonical template, adapted to this language's word order.
   const template = canonicalTemplate(frame.predicate);
@@ -225,16 +247,16 @@ function encodeFrameInner(spec: LanguageSpec, frame: FilledFrame): string {
   }
 
   // Sentence-level mood particles (used in "simple" difficulty languages).
-  // Q goes around interrogatives, IMP around imperatives. Position is
-  // initial or final. Particle marks STACK with affix marks (a language
-  // could in principle do both); in practice, simple-mode languages have
-  // empty mood affixes so only the particle is visible.
+  // Q wraps any frame containing an "unknown" filler; IMP wraps imperative
+  // frames. Particle marks STACK with affix marks (a language could in
+  // principle do both); in practice, simple-mode languages have empty mood
+  // affixes so only the particle is visible.
   if (spec.particles) {
     const apply = (p: { form: string; position: "initial" | "final" }) => {
       if (p.form === "") return;
       words = p.position === "initial" ? [p.form, ...words] : [...words, p.form];
     };
-    if (frame.mood === "interrogative") apply(spec.particles.Q);
+    if (hasUnknown) apply(spec.particles.Q);
     else if (frame.mood === "imperative") apply(spec.particles.IMP);
   }
 

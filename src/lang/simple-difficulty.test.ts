@@ -17,32 +17,32 @@ const FRAMES: FilledFrame[] = [
     predicate: "GIVE",
     mood: "declarative",
     roles: {
-      agent: { type: "ANIMATE", conceptId: "PLAYER" },
+      agent: "self",
       recipient: { type: "ANIMATE", conceptId: "SMITH" },
       theme: { type: "ITEM", conceptId: "FLINT" },
     },
   },
   {
     predicate: "WANT",
-    mood: "interrogative",
+    mood: "declarative",
     roles: {
       wanter: { type: "ANIMATE", conceptId: "SMITH" },
-      desired: "?",
+      desired: "unknown",
     },
   },
   {
     predicate: "BE_AT",
-    mood: "interrogative",
+    mood: "declarative",
     roles: {
       figure: { type: "ITEM", conceptId: "FLINT" },
-      ground: "?",
+      ground: "unknown",
     },
   },
   {
     predicate: "TAKE",
     mood: "imperative",
     roles: {
-      agent: { type: "ANIMATE", conceptId: "ADDRESSEE" },
+      agent: "listener",
       theme: { type: "ITEM", conceptId: "FLINT" },
     },
   },
@@ -50,7 +50,7 @@ const FRAMES: FilledFrame[] = [
     predicate: "MOVE",
     mood: "declarative",
     roles: {
-      agent: { type: "ANIMATE", conceptId: "ADDRESSEE" },
+      agent: "listener",
       destination: { type: "LOCATION", conceptId: "CAVE" },
     },
   },
@@ -80,8 +80,9 @@ describe("simple-difficulty round-trip", () => {
         );
         for (const [k, expected] of Object.entries(frame.roles)) {
           const got = decoded.roles[k];
-          if (expected === "?") {
-            expect(got, `${seed}/${frame.predicate}/${k}`).toBe("?");
+          if (typeof expected === "string") {
+            // Deictic pronoun or "unknown" — string-literal filler.
+            expect(got, `${seed}/${frame.predicate}/${k}`).toBe(expected);
           } else if (typeof expected === "object" && "conceptId" in expected) {
             expect(got, `${seed}/${frame.predicate}/${k}`).toMatchObject({
               type: expected.type,

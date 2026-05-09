@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { FilledFrame, isEntityRef, isNestedFrame } from "./frames.js";
+import { FilledFrame, isEntityRef, isNestedFrame, isPronoun } from "./frames.js";
 import { encodeFrame } from "./encoder.js";
 import { ParseError, decodeText } from "./decoder.js";
 import { EXAMPLE_LANGUAGE } from "./example-language.js";
@@ -34,10 +34,10 @@ const NPC_LINES: { gloss: string; frame: FilledFrame }[] = [
     gloss: "(the smith asks) what do you want?",
     frame: {
       predicate: "WANT",
-      mood: "interrogative",
+      mood: "declarative",
       roles: {
-        wanter: { type: "ANIMATE", conceptId: "ADDRESSEE" },
-        desired: "?",
+        wanter: "listener",
+        desired: "unknown",
       },
     },
   },
@@ -47,7 +47,7 @@ const NPC_LINES: { gloss: string; frame: FilledFrame }[] = [
       predicate: "TAKE",
       mood: "imperative",
       roles: {
-        agent: { type: "ANIMATE", conceptId: "ADDRESSEE" },
+        agent: "listener",
         theme: { type: "ITEM", conceptId: "FLINT" },
       },
     },
@@ -56,10 +56,10 @@ const NPC_LINES: { gloss: string; frame: FilledFrame }[] = [
     gloss: "(the woodsman asks) where is the lighter?",
     frame: {
       predicate: "BE_AT",
-      mood: "interrogative",
+      mood: "declarative",
       roles: {
         figure: { type: "ITEM", conceptId: "LIGHTER" },
-        ground: "?",
+        ground: "unknown",
       },
     },
   },
@@ -68,7 +68,7 @@ const NPC_LINES: { gloss: string; frame: FilledFrame }[] = [
 function describe(filled: FilledFrame): string {
   const parts = [filled.predicate, `[${filled.mood}]`];
   for (const [name, filler] of Object.entries(filled.roles)) {
-    if (filler === "?") parts.push(`${name}=?`);
+    if (isPronoun(filler)) parts.push(`${name}=${filler}`);
     else if (isNestedFrame(filler)) parts.push(`${name}=[${describe(filler.frame)}]`);
     else if (isEntityRef(filler)) parts.push(`${name}=${filler.conceptId}`);
   }

@@ -4,8 +4,16 @@ import {
   LanguageSpec,
   LexiconEntry,
   NegationStrategy,
+  PRONOUN_ID_FOR,
 } from "./language-spec.js";
-import { FilledFrame, Number_, RoleFiller } from "./frames.js";
+import {
+  FilledFrame,
+  Number_,
+  Pronoun,
+  RoleFiller,
+  isEntityRef,
+  isPronoun,
+} from "./frames.js";
 import { encodeFrame } from "./encoder.js";
 import { decodeText } from "./decoder.js";
 import {
@@ -36,7 +44,10 @@ const VERB_CONCEPTS = [
 const ITEM_CONCEPTS = ["FLINT", "STICK", "LIGHTER", "BREAD", "WATER"] as const;
 const LOCATION_CONCEPTS = ["FOREST", "CAVE", "FORGE", "MEADOW"] as const;
 const ANIMATE_CONCEPTS = ["SMITH", "WOODSMAN"] as const;
-const PRONOUN_CONCEPTS = ["PLAYER", "ADDRESSEE"] as const;
+// Deictic pronouns the random language must realise. Keys correspond to
+// the Pronoun enum members minus "unknown" (wh-words are emitted under
+// the WH_<TYPE> scheme below). Lexicon keys follow PRONOUN_ID_FOR.
+const PRONOUN_PERSONS = ["self", "listener", "reference"] as const satisfies readonly Pronoun[];
 
 const WORD_ORDERS = ["SOV", "SVO", "VSO", "VOS", "OSV", "OVS"] as const;
 const POSITIONS = ["prefix", "suffix"] as const;
@@ -55,7 +66,7 @@ function generateLexicon(rng: Rng, phon: Phonology): Record<string, LexiconEntry
   const nounCount =
     ITEM_CONCEPTS.length + LOCATION_CONCEPTS.length + ANIMATE_CONCEPTS.length;
   const contentStems = uniqueWords(rng, phon, verbCount + nounCount, 2);
-  const shortStems = uniqueWords(rng, phon, PRONOUN_CONCEPTS.length + 3, 1);
+  const shortStems = uniqueWords(rng, phon, PRONOUN_PERSONS.length + 3, 1);
 
   const lexicon: Record<string, LexiconEntry> = {};
   let i = 0;
@@ -72,10 +83,11 @@ function generateLexicon(rng: Rng, phon: Phonology): Record<string, LexiconEntry
     lexicon[id] = { stem: contentStems[i++]!, category: "noun", semanticType: "ANIMATE" };
   }
   let j = 0;
-  for (const id of PRONOUN_CONCEPTS) {
-    lexicon[id] = {
+  for (const person of PRONOUN_PERSONS) {
+    lexicon[PRONOUN_ID_FOR[person]] = {
       stem: shortStems[j++]!,
       category: "pronoun",
+      person,
       semanticType: "ANIMATE",
       inherentNumber: "sg",
     };
@@ -197,7 +209,10 @@ function generateSimpleAttempt(
   const lexicon = generateLexicon(lexRng, phonology);
   const stems = new Set(Object.values(lexicon).map((e) => e.stem));
 
-  const wordOrder = pick(WORD_ORDERS, syntaxRng);
+  // Simple difficulty pins word order to SVO so learners always see
+  // subject-then-verb-then-object — the easiest order to map to English.
+  // Other syntactic dials are still randomised to keep variety.
+  const wordOrder = "SVO" as const;
   const obliquePosition = pick(OBLIQUE_POSITIONS, syntaxRng);
 
   // Mood particles must be unique vs lexicon stems and each other.
@@ -260,7 +275,7 @@ const PROBE_FRAMES: FilledFrame[] = [
   {
     predicate: "GIVE", mood: "declarative",
     roles: {
-      agent:     { type: "ANIMATE", conceptId: "PLAYER" },
+      agent:     "self",
       recipient: { type: "ANIMATE", conceptId: "SMITH" },
       theme:     { type: "ITEM",    conceptId: "FLINT" },
     },
@@ -269,36 +284,38 @@ const PROBE_FRAMES: FilledFrame[] = [
     predicate: "GIVE", mood: "declarative",
     roles: {
       agent:     { type: "ANIMATE", conceptId: "SMITH" },
-      recipient: { type: "ANIMATE", conceptId: "ADDRESSEE" },
+      recipient: "listener",
       theme:     { type: "ITEM",    conceptId: "STICK" },
     },
   },
+  // Wh-probes (questions): no longer require interrogative mood — the
+  // "unknown" filler alone marks the question.
   {
-    predicate: "WANT", mood: "interrogative",
+    predicate: "WANT", mood: "declarative",
     roles: {
       wanter:  { type: "ANIMATE", conceptId: "SMITH" },
-      desired: "?",
+      desired: "unknown",
     },
   },
   {
-    predicate: "BE_AT", mood: "interrogative",
+    predicate: "BE_AT", mood: "declarative",
     roles: {
       figure: { type: "ITEM", conceptId: "FLINT" },
-      ground: "?",
+      ground: "unknown",
     },
   },
   {
-    predicate: "HAVE", mood: "interrogative",
+    predicate: "HAVE", mood: "declarative",
     roles: {
-      owner: "?",
+      owner: "unknown",
       theme: { type: "ITEM", conceptId: "FLINT" },
     },
   },
   {
     predicate: "TAKE", mood: "imperative",
     roles: {
-      agent: { type: "ANIMATE", conceptId: "ADDRESSEE" },
-      theme: { type: "ITEM",    conceptId: "FLINT" },
+      agent: "listener",
+      theme: { type: "ITEM", conceptId: "FLINT" },
     },
   },
   // New-frame coverage:
@@ -312,8 +329,49 @@ const PROBE_FRAMES: FilledFrame[] = [
   {
     predicate: "SEE", mood: "declarative",
     roles: {
-      viewer: { type: "ANIMATE", conceptId: "PLAYER" },
+      viewer: "self",
       target: { type: "LOCATION", conceptId: "MEADOW" },
+    },
+  },
+  // 3rd-person anaphor probe (round-trip exercise for "reference").
+  {
+    predicate: "WANT", mood: "declarative",
+    roles: {
+      wanter:  "reference",
+      desired: { type: "ITEM", conceptId: "FLINT" },
+    },
+  },
+  // Pronouns in ACC case — SEE.target accepts ANIMATE so all three pronouns
+  // can ride that slot. Catches stem-collision modes that only surface when
+  // a pronoun is object-case marked rather than subject-case.
+  {
+    predicate: "SEE", mood: "declarative",
+    roles: {
+      viewer: { type: "ANIMATE", conceptId: "SMITH" },
+      target: "reference",
+    },
+  },
+  {
+    predicate: "SEE", mood: "declarative",
+    roles: {
+      viewer: { type: "ANIMATE", conceptId: "WOODSMAN" },
+      target: "self",
+    },
+  },
+  {
+    predicate: "SEE", mood: "declarative",
+    roles: {
+      viewer: { type: "ANIMATE", conceptId: "WOODSMAN" },
+      target: "listener",
+    },
+  },
+  // Pronoun in DAT case — GIVE.recipient marks DAT (oblique).
+  {
+    predicate: "GIVE", mood: "declarative",
+    roles: {
+      agent:     { type: "ANIMATE", conceptId: "SMITH" },
+      recipient: "reference",
+      theme:     { type: "ITEM", conceptId: "FLINT" },
     },
   },
   // Plural number probe (full-mode only).
@@ -336,9 +394,8 @@ const PROBE_FRAMES: FilledFrame[] = [
 ];
 
 function fillerEqual(a: RoleFiller, b: RoleFiller): boolean {
-  if (a === "?" || b === "?") return a === b;
-  if (typeof a !== "object" || typeof b !== "object") return false;
-  if (!("conceptId" in a) || !("conceptId" in b)) return false;
+  if (isPronoun(a) || isPronoun(b)) return a === b;
+  if (!isEntityRef(a) || !isEntityRef(b)) return false;
   if (a.type !== b.type) return false;
   if (a.conceptId !== b.conceptId) return false;
   // Compare numbers, treating absence as singular.
@@ -354,7 +411,7 @@ function roundTrips(spec: LanguageSpec): boolean {
     ? PROBE_FRAMES.filter((f) =>
         !f.tense &&
         Object.values(f.roles).every(
-          (r) => r === "?" || (typeof r === "object" && (r as { number?: unknown }).number === undefined),
+          (r) => isPronoun(r) || (isEntityRef(r) && r.number === undefined),
         ),
       )
     : PROBE_FRAMES;

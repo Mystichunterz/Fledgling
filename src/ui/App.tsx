@@ -2,21 +2,23 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import {
   FRAMES,
   FilledFrame,
-  FrameSpec,
   RoleFiller,
   RoleSpec,
-  RoleType,
-  validateFilledFrame,
+  isEntityRef,
+  isNestedFrame,
+  isPronoun,
+  isUnknown,
 } from "../lang/frames.js";
 import {
+  Affix,
   Case,
   Difficulty,
   LanguageSpec,
   LexiconEntry,
   MoodTag,
-  WH_FOR_TYPE,
   caseForGrammar,
 } from "../lang/language-spec.js";
+import type { Number_, Tense } from "../lang/frames.js";
 import { encodeFrame } from "../lang/encoder.js";
 import { ParseError, decodeText } from "../lang/decoder.js";
 import { EXAMPLE_LANGUAGE } from "../lang/example-language.js";
@@ -24,9 +26,13 @@ import { randomLanguage, randomSeedString } from "../lang/random-language.js";
 import {
   FrameGloss,
   GlossedWord,
-  formatGlossLabel,
   glossFrame,
 } from "../lang/gloss.js";
+import {
+  FrameTextError,
+  formatFrameText,
+  parseFrameText,
+} from "../lang/frame-text.js";
 
 const FRAME_LIST = Object.values(FRAMES);
 
@@ -36,65 +42,31 @@ const LanguageContext = createContext<LanguageSpec>(EXAMPLE_LANGUAGE);
 const useLanguage = (): LanguageSpec => useContext(LanguageContext);
 
 // Sample frame used to seed the parse panel with a known-good sentence in
-// whatever language is active.
+// whatever language is active. WANT(SMITH, ?) → "what does the smith want?"
+// — a question, signalled by the "unknown" filler in the desired role.
 const PARSE_SEED_FRAME: FilledFrame = {
   predicate: "WANT",
-  mood: "interrogative",
+  mood: "declarative",
   roles: {
     wanter: { type: "ANIMATE", conceptId: "SMITH" },
-    desired: "?",
+    desired: "unknown",
   },
 };
 
 // ============================================================
-// Helpers
+// Compose helpers — frame DSL examples
 // ============================================================
 
-function compatibleConcepts(
-  spec: LanguageSpec,
-  types: readonly RoleType[],
-): { conceptId: string; entry: LexiconEntry }[] {
-  const out: { conceptId: string; entry: LexiconEntry }[] = [];
-  for (const [conceptId, entry] of Object.entries(spec.lexicon)) {
-    if (entry.category === "verb") continue;
-    if (entry.category === "wh") continue;
-    if (!entry.semanticType) continue;
-    if (types.includes(entry.semanticType)) out.push({ conceptId, entry });
-  }
-  return out;
-}
-
-function defaultRolesFor(
-  spec: LanguageSpec,
-  frame: FrameSpec,
-): Record<string, RoleFiller> {
-  const roles: Record<string, RoleFiller> = {};
-  for (const role of frame.roles) {
-    const opts = compatibleConcepts(spec, role.types);
-    const first = opts[0];
-    if (!first) {
-      throw new Error(
-        `Lexicon has no concept for role "${role.name}" types ${role.types.join("|")}`,
-      );
-    }
-    roles[role.name] = {
-      type: first.entry.semanticType!,
-      conceptId: first.conceptId,
-    };
-  }
-  return roles;
-}
-
-type UiMood = "declarative" | "interrogative" | "imperative";
-
-function moodOf(
-  roles: Record<string, RoleFiller>,
-  explicit: UiMood,
-): UiMood {
-  if (Object.values(roles).some((r) => r === "?")) return "interrogative";
-  // No wildcard → declarative or imperative, depending on user choice.
-  return explicit === "imperative" ? "imperative" : "declarative";
-}
+const COMPOSE_EXAMPLES: { label: string; dsl: string }[] = [
+  { label: "declarative",        dsl: "WANT(wanter=SMITH, desired=FLINT)" },
+  { label: "wh-question",        dsl: "WANT(wanter=listener, desired=unknown)" },
+  { label: "imperative",         dsl: "!GIVE(agent=listener, recipient=self, theme=STICK)" },
+  { label: "negated · past",     dsl: "~HAVE.past(owner=SMITH, theme=BREAD)" },
+  { label: "1st-person",         dsl: "EAT(agent=self, patient=BREAD)" },
+  { label: "3rd-person anaphor", dsl: "WANT(wanter=reference, desired=FLINT)" },
+  { label: "plural",             dsl: "EAT(agent=SMITH.pl, patient=BREAD)" },
+  { label: "nested",             dsl: "SAY(speaker=SMITH, recipient=self, content=[WANT(wanter=listener, desired=FLINT)])" },
+];
 
 // ============================================================
 // Root
@@ -102,13 +74,8 @@ function moodOf(
 
 export function App() {
   const [L, setL] = useState<LanguageSpec>(EXAMPLE_LANGUAGE);
-  // The seed currently displayed in the masthead. Empty when the seed
-  // field is editable but unsubmitted, or when on the example language.
   const [seed, setSeed] = useState<string>("");
-  // Difficulty tier passed to randomLanguage. "full" = full inflection;
-  // "simple" = bare stems with sentence-level mood particles.
   const [difficulty, setDifficulty] = useState<Difficulty>("full");
-  // Lifted so the parse seed can refresh when the language changes.
   const [parseInput, setParseInput] = useState<string>(() =>
     encodeFrame(EXAMPLE_LANGUAGE, PARSE_SEED_FRAME),
   );
@@ -122,8 +89,6 @@ export function App() {
     }
   };
 
-  // Generate from the current seed field. If empty, mint a fresh seed and
-  // populate the field so the user can copy it.
   const regenerate = () => {
     const trimmed = seed.trim();
     const used = trimmed === "" ? randomSeedString() : trimmed;
@@ -186,8 +151,6 @@ function Masthead({
   const oblique = L.syntax.obliquePosition;
   const affixPosition = L.morphology.case.NOM.position;
   const stemCount = Object.keys(L.lexicon).length;
-  // Languages without an explicit difficulty (the example fixture) are
-  // shown as "full" — they use the full inflectional engine.
   const activeDifficulty: Difficulty = L.difficulty ?? "full";
   return (
     <header>
@@ -196,7 +159,7 @@ function Masthead({
           <h1 className="title">
             Fledgling<em>.</em>
           </h1>
-          <div className="subtitle">Translator Workbench · vol I</div>
+          <div className="subtitle">Translator Workbench · vol II</div>
         </div>
         <div className="colophon">
           <div><strong>Language</strong> {L.id}</div>
@@ -264,6 +227,10 @@ function Masthead({
         {affixPosition === "suffix" ? "suffixing" : "prefixing"}
         <span className="sep">·</span>
         {oblique === "post-verb" ? "post-verbal obliques" : "pre-verbal obliques"}
+        <span className="sep">·</span>
+        {L.syntax.negationStrategy === "affix"
+          ? "affixal negation"
+          : `${L.syntax.negationStrategy} negation`}
       </p>
     </header>
   );
@@ -301,230 +268,91 @@ function Workbench({
 
 function ComposePanel() {
   const L = useLanguage();
-  const [frameId, setFrameId] = useState<string>(FRAME_LIST[0]!.id);
-  const frame = FRAMES[frameId]!;
-  const [roles, setRoles] = useState<Record<string, RoleFiller>>(() =>
-    defaultRolesFor(L, frame),
+  const [text, setText] = useState<string>(() =>
+    formatFrameText(PARSE_SEED_FRAME),
   );
-  // Disambiguates declarative vs imperative when no wildcard is present.
-  const [explicitMood, setExplicitMood] = useState<UiMood>("declarative");
 
-  // Switching frames must update frameId and roles together — useEffect runs
-  // after render, which would let the render see new role names against the
-  // old roles map and crash inside RoleEditor.
-  const selectFrame = (nextId: string) => {
-    if (nextId === frameId) return;
-    setFrameId(nextId);
-    setRoles(defaultRolesFor(L, FRAMES[nextId]!));
-    if (FRAMES[nextId]!.category !== "action" && explicitMood === "imperative") {
-      setExplicitMood("declarative");
+  const result = useMemo(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return { kind: "empty" as const };
+    try {
+      const frame = parseFrameText(
+        trimmed,
+        (id) => L.lexicon[id]?.semanticType,
+      );
+      const gloss = glossFrame(L, frame);
+      return { kind: "ok" as const, frame, gloss };
+    } catch (e) {
+      const message =
+        e instanceof FrameTextError || e instanceof Error
+          ? e.message
+          : String(e);
+      return { kind: "error" as const, message };
     }
-  };
-
-  const mood = moodOf(roles, explicitMood);
-  const imperativeAllowed = frame.category === "action";
-
-  const setMood = (next: UiMood) => {
-    if (next === mood) return;
-    if (next === "interrogative") {
-      // Wildcard the last role.
-      const last = frame.roles[frame.roles.length - 1]!;
-      setRoles((prev) => ({ ...prev, [last.name]: "?" as const }));
-      setExplicitMood("declarative"); // reset; mood derives from wildcard now
-    } else {
-      // declarative or imperative — both are wildcard-free.
-      setRoles((prev) => {
-        const out: Record<string, RoleFiller> = {};
-        for (const role of frame.roles) {
-          const cur = prev[role.name];
-          if (cur === "?") {
-            const [first] = compatibleConcepts(L, role.types);
-            out[role.name] = {
-              type: first!.entry.semanticType!,
-              conceptId: first!.conceptId,
-            };
-          } else {
-            out[role.name] = cur!;
-          }
-        }
-        return out;
-      });
-      setExplicitMood(next);
-    }
-  };
-
-  const setRoleValue = (roleName: string, value: string) => {
-    const role = frame.roles.find((r) => r.name === roleName)!;
-    setRoles((prev) => {
-      const next = { ...prev };
-      if (value === "?") {
-        // Clear any other "?" first
-        for (const r of frame.roles) {
-          if (r.name !== roleName && next[r.name] === "?") {
-            const [first] = compatibleConcepts(L, r.types);
-            next[r.name] = {
-              type: first!.entry.semanticType!,
-              conceptId: first!.conceptId,
-            };
-          }
-        }
-        next[roleName] = "?";
-      } else {
-        const entry = L.lexicon[value];
-        if (!entry) throw new Error(`unknown concept ${value}`);
-        next[roleName] = {
-          type: entry.semanticType!,
-          conceptId: value,
-        };
-      }
-      return next;
-    });
-  };
-
-  const filled: FilledFrame = { predicate: frameId, mood, roles };
-
-  let result: { gloss: FrameGloss; error: null } | { gloss: null; error: string };
-  try {
-    validateFilledFrame(filled);
-    result = { gloss: glossFrame(L, filled), error: null };
-  } catch (e) {
-    result = { gloss: null, error: String(e instanceof Error ? e.message : e) };
-  }
+  }, [text, L]);
 
   return (
     <div className="panel">
       <div className="panel-head">
         <h3 className="panel-name">§ I.a — Compose</h3>
-        <span className="panel-flow">frame → text</span>
+        <span className="panel-flow">frame DSL → surface</span>
       </div>
 
       <div className="field">
-        <div className="field-label">Predicate</div>
+        <div className="field-label">Frame · DSL</div>
+        <textarea
+          className={`frame-dsl-input parse-input ${
+            result.kind === "error" ? "is-error" : ""
+          }`}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={3}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          placeholder="PRED(role=filler, …) — e.g. WANT(wanter=self, desired=FLINT)"
+        />
+        {result.kind === "ok" && (
+          <div className="parse-status ok">
+            <span className="glyph">✓</span> valid frame
+          </div>
+        )}
+        {result.kind === "error" && (
+          <div className="parse-status error">
+            <span className="glyph">×</span> {result.message}
+          </div>
+        )}
+        {result.kind === "empty" && (
+          <div className="parse-status empty">
+            <span className="glyph">·</span> awaiting input
+          </div>
+        )}
+      </div>
+
+      <div className="field">
+        <div className="field-label">Examples</div>
         <div className="pills">
-          {FRAME_LIST.map((f) => (
+          {COMPOSE_EXAMPLES.map((ex) => (
             <button
-              key={f.id}
+              key={ex.dsl}
               className="pill"
-              aria-pressed={f.id === frameId}
-              onClick={() => selectFrame(f.id)}
+              aria-pressed={ex.dsl === text.trim()}
+              onClick={() => setText(ex.dsl)}
+              title={ex.dsl}
+              type="button"
             >
-              {f.id}
+              {ex.label}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="field">
-        <div className="field-label">Mood</div>
-        <div className="pills">
-          <button
-            className="pill"
-            aria-pressed={mood === "declarative"}
-            onClick={() => setMood("declarative")}
-          >
-            declarative
-          </button>
-          <button
-            className="pill"
-            aria-pressed={mood === "interrogative"}
-            onClick={() => setMood("interrogative")}
-          >
-            interrogative
-          </button>
-          <button
-            className="pill"
-            aria-pressed={mood === "imperative"}
-            onClick={() => setMood("imperative")}
-            disabled={!imperativeAllowed}
-            title={
-              imperativeAllowed
-                ? undefined
-                : "imperative only applies to action frames"
-            }
-          >
-            imperative
-          </button>
-        </div>
-      </div>
-
-      <div className="field">
-        <div className="field-label">Roles</div>
-        <div className="roles">
-          {frame.roles.map((role) => (
-            <RoleEditor
-              key={role.name}
-              role={role}
-              value={roles[role.name]!}
-              onChange={(v) => setRoleValue(role.name, v)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {result.gloss ? (
-        <SurfaceOutput gloss={result.gloss} />
-      ) : (
-        <div className="surface">
-          <div className="surface-label">surface</div>
-          <div className="parse-status error">
-            <span className="glyph">×</span> {result.error}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RoleEditor({
-  role,
-  value,
-  onChange,
-}: {
-  role: RoleSpec;
-  value: RoleFiller;
-  onChange: (v: string) => void;
-}) {
-  const L = useLanguage();
-  const opts = compatibleConcepts(L, role.types);
-  const isWild = value === "?";
-  const isNested = !isWild && typeof value === "object" && "kind" in value;
-  const selectValue = isWild
-    ? "?"
-    : isNested
-      ? "(nested)"
-      : (value as { conceptId: string }).conceptId;
-
-  // Determine which wh-word would be used for this role's wildcard.
-  const whConcept = WH_FOR_TYPE[role.types[0]!];
-  const whEntry = whConcept ? L.lexicon[whConcept] : undefined;
-
-  return (
-    <div className={`role-row ${isWild ? "is-wild" : ""}`}>
-      <div className="role-meta">
-        <span className="role-name">{role.name}</span>
-        <span className="role-types">{role.types.join("|")}</span>
-        <span className="role-grammar">· {role.grammar}</span>
-      </div>
-      <select
-        className="select"
-        value={selectValue}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {opts.map((o) => (
-          <option key={o.conceptId} value={o.conceptId}>
-            {o.conceptId} ({o.entry.stem})
-          </option>
-        ))}
-        <option value="?">
-          ? — wildcard ({whEntry?.stem ?? "—"})
-        </option>
-      </select>
+      {result.kind === "ok" && <SurfaceOutput gloss={result.gloss} />}
     </div>
   );
 }
 
 function SurfaceOutput({ gloss }: { gloss: FrameGloss }) {
-  // Flash the box when the surface string changes.
   const ref = useRef<HTMLDivElement>(null);
   const lastSurface = useRef(gloss.surface);
   useEffect(() => {
@@ -533,7 +361,6 @@ function SurfaceOutput({ gloss }: { gloss: FrameGloss }) {
       const el = ref.current;
       if (el) {
         el.classList.remove("flash");
-        // force reflow
         void el.offsetWidth;
         el.classList.add("flash");
       }
@@ -646,6 +473,12 @@ function ParsePanel({
             <div className="surface-label">interlinear</div>
             <InterlinearGloss words={parsed.gloss.words} />
           </div>
+          <div className="surface" style={{ marginTop: 14 }}>
+            <div className="surface-label">frame · DSL</div>
+            <pre className="frame-dsl-output">
+              {formatFrameText(parsed.frame)}
+            </pre>
+          </div>
           <FrameDisplay frame={parsed.frame} />
         </>
       )}
@@ -653,16 +486,23 @@ function ParsePanel({
   );
 }
 
-function FrameDisplay({ frame }: { frame: FilledFrame }) {
+function FrameDisplay({ frame, depth = 0 }: { frame: FilledFrame; depth?: number }) {
   const L = useLanguage();
   const spec = FRAMES[frame.predicate]!;
+  const isQuestion = Object.values(frame.roles).some(isUnknown);
+
   return (
-    <div className="frame-display">
+    <div className={`frame-display ${depth > 0 ? "nested" : ""}`}>
       <div className="frame-row">
         <div className="frame-key">predicate</div>
         <div className="frame-val">
           <span className="predicate">{frame.predicate}</span>
           <span className="badge">{frame.mood}</span>
+          {isQuestion && <span className="badge q">interrogative</span>}
+          {frame.tense && frame.tense !== "present" && (
+            <span className="badge tense">{frame.tense}</span>
+          )}
+          {frame.negated && <span className="badge neg">NEG</span>}
         </div>
       </div>
       <div className="frame-row">
@@ -675,22 +515,7 @@ function FrameDisplay({ frame }: { frame: FilledFrame }) {
               <div className="role-bind" key={role.name}>
                 <span className="role-tag">{role.name}</span>
                 <span className="case-tag">{caseTag}</span>
-                {filler === "?" ? (
-                  <span className="filler wh">
-                    ? · expects {role.types[0]}
-                  </span>
-                ) : filler && typeof filler === "object" && "kind" in filler ? (
-                  <span className="filler">
-                    [{filler.frame.predicate}] <span className="muted">(nested)</span>
-                  </span>
-                ) : filler && typeof filler === "object" && "conceptId" in filler ? (
-                  <span className="filler">
-                    {filler.conceptId}{" "}
-                    <span className="muted">
-                      ({filler.type.toLowerCase()})
-                    </span>
-                  </span>
-                ) : null}
+                <FillerView filler={filler} role={role} />
               </div>
             );
           })}
@@ -700,13 +525,54 @@ function FrameDisplay({ frame }: { frame: FilledFrame }) {
   );
 }
 
+function FillerView({
+  filler,
+  role,
+}: {
+  filler: RoleFiller | undefined;
+  role: RoleSpec;
+}) {
+  if (filler === undefined) {
+    return <span className="filler missing">— missing —</span>;
+  }
+  if (isUnknown(filler)) {
+    return (
+      <span className="filler wh">
+        unknown · wh-{role.types[0]?.toLowerCase()}
+      </span>
+    );
+  }
+  if (isPronoun(filler)) {
+    return (
+      <span className="filler pronoun">
+        {filler} <span className="muted">(deictic)</span>
+      </span>
+    );
+  }
+  if (isNestedFrame(filler)) {
+    return (
+      <div className="filler nested-filler">
+        <span className="muted">↳ nested</span>
+        <FrameDisplay frame={filler.frame} depth={1} />
+      </div>
+    );
+  }
+  // EntityRef
+  return (
+    <span className="filler">
+      {filler.conceptId}{" "}
+      <span className="muted">({filler.type.toLowerCase()})</span>
+      {filler.number === "pl" && <span className="num-tag">pl</span>}
+    </span>
+  );
+}
+
 // ============================================================
 // Lexicon reference
 // ============================================================
 
 function LexiconReference() {
   const L = useLanguage();
-  // Bucket lexicon entries by category.
   const byCat: Record<string, [string, LexiconEntry][]> = {
     verb: [],
     noun: [],
@@ -735,7 +601,11 @@ function LexiconReference() {
         />
         <RefColumn
           title="Pronouns"
-          rows={byCat.pronoun!.map(([id, e]) => [id, e.stem, e.semanticType ?? ""])}
+          rows={byCat.pronoun!.map(([id, e]) => [
+            id,
+            e.stem,
+            e.person ? `${e.person} · ${e.semanticType?.toLowerCase() ?? ""}` : "",
+          ])}
         />
         <RefColumn
           title="Wh-words"
@@ -777,10 +647,30 @@ function RefColumn({
 // Morphology reference
 // ============================================================
 
+function fmtAffix(a: Affix): React.ReactNode {
+  if (a.form === "") return <span className="zero">∅</span>;
+  return a.position === "prefix" ? `${a.form}-` : `-${a.form}`;
+}
+
+function AffixRow({ tag, affix }: { tag: string; affix: Affix }) {
+  return (
+    <div className="morph-row">
+      <span className="morph-tag">{tag}</span>
+      <span className="morph-form">
+        {fmtAffix(affix)}
+        <span className="pos">{affix.position}</span>
+      </span>
+    </div>
+  );
+}
+
 function MorphologyReference() {
   const L = useLanguage();
   const cases: Case[] = ["NOM", "ACC", "DAT"];
   const moods: MoodTag[] = ["DECL", "Q", "IMP"];
+  const numbers: Number_[] = ["sg", "pl"];
+  const tenses: Tense[] = ["present", "past", "future"];
+  const isSimple = L.difficulty === "simple";
 
   return (
     <section className="section">
@@ -791,48 +681,73 @@ function MorphologyReference() {
       </div>
       <div className="morph-grid">
         <div className="morph-block">
-          <h4>Case affixes</h4>
-          {cases.map((c) => {
-            const a = L.morphology.case[c];
-            return (
-              <div className="morph-row" key={c}>
-                <span className="morph-tag">{c}</span>
-                <span className="morph-form">
-                  {a.form === "" ? (
-                    <span className="zero">∅</span>
-                  ) : (
-                    <>{a.position === "prefix" ? `${a.form}-` : `-${a.form}`}</>
-                  )}
-                  <span className="pos">{a.position}</span>
-                </span>
-              </div>
-            );
-          })}
+          <h4>Case</h4>
+          {cases.map((c) => <AffixRow key={c} tag={c} affix={L.morphology.case[c]} />)}
         </div>
+
         <div className="morph-block">
-          <h4>Mood affixes</h4>
-          {moods.map((m) => {
-            const a = L.morphology.mood[m];
-            return (
-              <div className="morph-row" key={m}>
-                <span className="morph-tag">{m}</span>
-                <span className="morph-form">
-                  {a.form === "" ? (
-                    <span className="zero">∅</span>
-                  ) : (
-                    <>{a.position === "prefix" ? `${a.form}-` : `-${a.form}`}</>
-                  )}
-                  <span className="pos">{a.position}</span>
-                </span>
-              </div>
-            );
-          })}
+          <h4>Mood</h4>
+          {moods.map((m) => <AffixRow key={m} tag={m} affix={L.morphology.mood[m]} />)}
         </div>
+
         <div className="morph-block">
+          <h4>Number</h4>
+          {numbers.map((n) => <AffixRow key={n} tag={n.toUpperCase()} affix={L.morphology.number[n]} />)}
+        </div>
+
+        <div className="morph-block">
+          <h4>Tense</h4>
+          {tenses.map((t) => (
+            <AffixRow key={t} tag={t.toUpperCase().slice(0, 3)} affix={L.morphology.tense[t]} />
+          ))}
+        </div>
+
+        <div className="morph-block">
+          <h4>Negation</h4>
+          <AffixRow tag="NEG" affix={L.morphology.negation} />
+          <div className="morph-meta">
+            <div><span className="k">strategy</span> {L.syntax.negationStrategy}</div>
+          </div>
+        </div>
+
+        <div className="morph-block">
+          <h4>Agreement</h4>
+          <div className="morph-meta">
+            <div>
+              <span className="k">subject↔verb number</span>{" "}
+              {L.syntax.agreement.subjectVerbNumber ? "yes" : "no"}
+            </div>
+          </div>
+        </div>
+
+        {isSimple && L.particles && (
+          <div className="morph-block">
+            <h4>Particles (simple)</h4>
+            <div className="morph-row">
+              <span className="morph-tag">Q</span>
+              <span className="morph-form">
+                <strong>{L.particles.Q.form}</strong>
+                <span className="pos">{L.particles.Q.position}</span>
+              </span>
+            </div>
+            <div className="morph-row">
+              <span className="morph-tag">IMP</span>
+              <span className="morph-form">
+                <strong>{L.particles.IMP.form}</strong>
+                <span className="pos">{L.particles.IMP.position}</span>
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="morph-block wide">
           <h4>Syntax</h4>
           <div className="morph-meta">
             <div><span className="k">word order</span> {L.syntax.wordOrder}</div>
             <div><span className="k">obliques</span> {L.syntax.obliquePosition}</div>
+            <div><span className="k">head direction</span> {L.syntax.headDirection}</div>
+            <div><span className="k">adpositions</span> {L.syntax.adpositionOrder}</div>
+            <div><span className="k">adjectives</span> {L.syntax.adjectiveOrder}</div>
             <div><span className="k">alignment</span> {L.morphology.alignment}</div>
             <div><span className="k">role → case</span> subject→NOM, object→ACC, oblique→DAT</div>
           </div>
@@ -849,7 +764,7 @@ function MorphologyReference() {
 function Footer() {
   return (
     <footer className="footer">
-      <div>fledgling · v0.1 · translator workbench</div>
+      <div>fledgling · v0.2 · translator workbench</div>
       <em>“one seed, one language.”</em>
     </footer>
   );
