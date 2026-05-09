@@ -30,9 +30,14 @@ const resolveEntry = (npcId: NpcId): string | null => {
   return tree.entries[tree.entries.length - 1] ?? null;
 };
 
-export const attachInteraction = (sprite: Phaser.GameObjects.Rectangle, npcId: NpcId) => {
+type InteractiveSprite = Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
+
+export const attachInteraction = (sprite: InteractiveSprite, npcId: NpcId) => {
   const { menu, overlay } = ensureSingletons();
 
+  // Hit area is in the GameObject's local (unscaled) space, so use the
+  // source frame size — Phaser maps pointer coords through the transform
+  // (which includes scale from setDisplaySize) before testing the hit area.
   const w = sprite.width;
   const h = sprite.height;
   const pad = 8;

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-interface Followable { x: number; y: number; height: number; }
+interface Followable { x: number; y: number; displayHeight: number; }
 
 // Phaser's DOMElement uses a container positioned at the canvas parent's
 // top-left, but #game flex-centers the canvas inside a 100vh box so labels
@@ -38,7 +38,7 @@ export const attachLabel = (
     const sx = rect.width / scene.scale.width;
     const sy = rect.height / scene.scale.height;
     // Sprite origin is assumed (0.5, 1) — sprite.y is the bottom edge.
-    const spriteTopWorldY = sprite.y - sprite.height;
+    const spriteTopWorldY = sprite.y - sprite.displayHeight;
     const cssX = rect.left + (sprite.x - cam.scrollX) * sx;
     const cssY = rect.top + (spriteTopWorldY - cam.scrollY) * sy - gap;
     el.style.transform = `translate(${cssX}px, ${cssY}px) translate(-50%, -100%)`;
