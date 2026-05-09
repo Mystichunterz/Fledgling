@@ -7,7 +7,9 @@ export interface HighlightOptions {
   color?: number;        // glow colour (warm gold default)
 }
 
-const DEFAULT_RADIUS = 48;
+// Exported so click-to-talk shares the same range as the visual highlight.
+export const INTERACTION_RADIUS = 48;
+const DEFAULT_RADIUS = INTERACTION_RADIUS;
 const DEFAULT_COLOR = 0xff8a30;
 
 // Single tightly-fitted glow rectangle (additive blend) hugging the target.

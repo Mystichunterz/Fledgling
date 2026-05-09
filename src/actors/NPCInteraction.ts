@@ -4,6 +4,8 @@ import { DialogueOverlay } from '../ui/DialogueOverlay';
 import { DIALOGUE_TREES } from '../sim/dialogueTrees';
 import { npcById } from '../sim/npcRoster';
 import type { NpcId } from '../sim/dialogueTypes';
+import { INTERACTION_RADIUS } from '../engine/highlight';
+import { GameRegistry } from '../state/GameRegistry';
 
 let sharedMenu: InteractionMenu | null = null;
 let sharedOverlay: DialogueOverlay | null = null;
@@ -29,7 +31,14 @@ export const attachInteraction = (sprite: Phaser.GameObjects.Rectangle, npcId: N
     useHandCursor: true,
   });
 
+  const radiusSq = INTERACTION_RADIUS * INTERACTION_RADIUS;
   sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    // Same proximity gate as the highlight (bbox center vs player), so the
+    // NPC is only clickable while their glow is visible.
+    const bb = sprite.getBounds();
+    const dx = bb.centerX - GameRegistry.playerX;
+    const dy = bb.centerY - GameRegistry.playerY;
+    if (dx * dx + dy * dy > radiusSq) return;
     pointer.event?.stopPropagation?.();
     menu.open(sprite.scene, sprite.x, sprite.y, [
       {
