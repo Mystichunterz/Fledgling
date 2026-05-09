@@ -15,16 +15,20 @@ const DEFAULT_COLOR = 0xff8a30;
 // Single tightly-fitted glow rectangle (additive blend) hugging the target.
 // Tracks the target's bounding box so origin/scale doesn't matter, pulses
 // while visible, gated on player distance, self-cleans on scene shutdown.
+type HighlightTarget = Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
+
 export function attachProximityHighlight(
   scene: Phaser.Scene,
-  target: Phaser.GameObjects.Rectangle,
+  target: HighlightTarget,
   options: HighlightOptions = {},
 ): Phaser.GameObjects.Container {
   const radius = options.radius ?? DEFAULT_RADIUS;
   const color = options.color ?? DEFAULT_COLOR;
 
-  const baseW = target.width;
-  const baseH = target.height;
+  // Use the rendered (post-scale) size so the glow rectangle matches the
+  // sprite's on-screen footprint. For Rectangles this equals width/height.
+  const baseW = target.displayWidth;
+  const baseH = target.displayHeight;
 
   const inner = scene.add.rectangle(0, 0, baseW + 3, baseH + 3, color, 0.5);
   inner.setBlendMode(Phaser.BlendModes.ADD);
