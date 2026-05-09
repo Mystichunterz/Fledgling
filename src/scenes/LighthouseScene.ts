@@ -67,7 +67,8 @@ export class LighthouseScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setDepth(Depths.BG_SKY);
 
-    this.beacon = this.add.image(PYRE_X, PYRE_Y, SpriteKeys.LOC_BEACON)
+    const initialBeaconKey = GameRegistry.beaconLit ? SpriteKeys.LOC_BEACON : SpriteKeys.LOC_BEACON_OFF;
+    this.beacon = this.add.image(PYRE_X, PYRE_Y, initialBeaconKey)
       .setOrigin(0.5, 1)
       .setDisplaySize(96, 96)
       .setDepth(Depths.BG_DECOR + 200);
@@ -133,6 +134,7 @@ export class LighthouseScene extends Phaser.Scene {
   }
 
   private applyLitVisual(animate: boolean) {
+    this.beacon.setTexture(SpriteKeys.LOC_BEACON).setDisplaySize(96, 96);
     const beaconHeight = this.beacon.displayHeight || 0;
     const fireY = PYRE_Y - beaconHeight * 0.55;
 
