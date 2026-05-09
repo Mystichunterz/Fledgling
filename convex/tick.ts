@@ -50,7 +50,7 @@ export const run = internalMutation({
             wordIds: tmpl.wordIds ?? [],
             location: step.location,
             gameTime: nextTime,
-            voiceLineId: tmpl.voiceLineId,
+            ...(tmpl.voiceLineId !== undefined && { voiceLineId: tmpl.voiceLineId }),
           });
         }
       }

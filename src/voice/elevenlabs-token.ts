@@ -17,13 +17,14 @@ export async function mintElevenLabsToken(
   voiceId: string,
   signal?: AbortSignal,
 ): Promise<ElevenLabsToken> {
-  const r = await fetch(TOKEN_ENDPOINT, {
+  const init: RequestInit = {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ voiceId }),
     cache: 'no-store',
-    signal,
-  });
+  };
+  if (signal) init.signal = signal;
+  const r = await fetch(TOKEN_ENDPOINT, init);
   if (!r.ok) {
     let detail = '';
     try {

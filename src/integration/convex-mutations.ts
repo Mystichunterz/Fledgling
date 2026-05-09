@@ -38,7 +38,7 @@ export async function emitDialogue(args: EmitDialogueArgs): Promise<void> {
     wordIds: args.wordIds,
     location: args.location,
     gameTime: args.gameTime,
-    voiceLineId: args.voiceLineId,
+    ...(args.voiceLineId !== undefined && { voiceLineId: args.voiceLineId }),
   });
 }
 

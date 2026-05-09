@@ -119,8 +119,8 @@ export async function speakLine(
         const a = msg.normalizedAlignment;
         const out: TimedChar[] = a.chars.map((char, i) => ({
           char,
-          startMs: a.charStartTimesMs[i],
-          durationMs: a.charDurationsMs[i],
+          startMs: a.charStartTimesMs[i] ?? 0,
+          durationMs: a.charDurationsMs[i] ?? 0,
         }));
         opts.onAlignment(out);
       }
