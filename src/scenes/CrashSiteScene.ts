@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SceneKeys } from '../assets/keys';
+import { SceneKeys, SpriteKeys } from '../assets/keys';
 import { Depths } from '../engine/depths';
 import {
   checkTransitions,
@@ -67,18 +67,12 @@ export class CrashSiteScene extends Phaser.Scene {
     // distinct from the village proper.
     paintFill(this, 0, 280, CRASH_WIDTH, CRASH_HEIGHT - 280, 'grass', 0xc0e0b0);
 
-    // Plane wreckage on the beach (mid-sand).
-    this.add.rectangle(320, 240, 96, 32, 0x4a4a5a)
+    // Wrecked boat on the beach (mid-sand).
+    this.add.image(320, 244, SpriteKeys.LOC_BOAT)
       .setOrigin(0.5, 1)
-      .setStrokeStyle(1, 0x202028)
+      .setDisplaySize(128, 80)
+      .setRotation(0.18)
       .setDepth(Depths.BG_DECOR + 240);
-    this.add.rectangle(360, 220, 32, 12, 0x4a4a5a)
-      .setOrigin(0.5, 1)
-      .setDepth(Depths.BG_DECOR + 240);
-    // Broken wing piece in the sand.
-    this.add.rectangle(232, 256, 36, 8, 0x3a3a4a)
-      .setOrigin(0.5, 1)
-      .setDepth(Depths.BG_DECOR + 256);
 
     // Path marker at the south edge — the way out toward village.
     this.add.rectangle(CRASH_WIDTH / 2, CRASH_HEIGHT - 4, 32, 4, 0xb8a070)
