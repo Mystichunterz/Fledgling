@@ -92,7 +92,7 @@ export class DebugScene extends Phaser.Scene {
   private buttons = new Map<string, HTMLButtonElement>();
   private itemButtons = new Map<ItemId, HTMLButtonElement>();
   private flagButtons = new Map<StateFlag, HTMLButtonElement>();
-  private hudVisible = true;
+  private hudVisible = false;
   private rafHandle = 0;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
 
