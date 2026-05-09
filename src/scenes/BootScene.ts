@@ -12,6 +12,8 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(SpriteKeys.PLAYER, 'village-man-spritesheet.png', {
       frameWidth: 181,
       frameHeight: 181,
+      margin: 2,
+      spacing: 2,
     });
     this.load.image(SpriteKeys.LOC_HUT,    'sprite_location_hut.png');
     this.load.image(SpriteKeys.LOC_STATUE, 'sprite_location_statue.png');

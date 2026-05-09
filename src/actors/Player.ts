@@ -4,7 +4,7 @@ import { clampToRect } from '../engine/coords';
 import { SpriteKeys } from '../assets/keys';
 
 const SPEED = 60;
-const PLAYER_DISPLAY_SIZE = 32;
+const PLAYER_DISPLAY_SIZE = 48;
 const PLAYER_ANIMS = {
   IDLE: 'player-idle',
   WALK_DOWN: 'player-walk-down',
@@ -63,6 +63,7 @@ export class Player {
       const len = Math.hypot(dx, dy);
       this.sprite.x += (dx / len) * SPEED * dt;
       this.sprite.y += (dy / len) * SPEED * dt;
+      if (dx !== 0) this.sprite.setFlipX(dx < 0);
       this.sprite.play(PLAYER_ANIMS.WALK_DOWN, true);
     } else {
       this.sprite.play(PLAYER_ANIMS.IDLE, true);
