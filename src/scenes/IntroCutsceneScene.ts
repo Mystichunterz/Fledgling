@@ -286,10 +286,18 @@ export class IntroCutsceneScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.expoCanvas.destroy());
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.expoCanvas.destroy());
 
-    // Cutscene BGM — loops while the demo is on-screen. Browsers may gate
-    // audio behind a user gesture; the cutscene's space/click skip will
-    // satisfy that on first input if not already granted.
-    this.sound.play(BGM_KEY, { loop: true, volume: 0.45 });
+    // Cutscene BGM — loops while the demo is on-screen. Browsers gate
+    // audio behind a user gesture; if the SoundManager is locked, defer
+    // playback until Phaser fires `unlocked` (the cutscene's space/click
+    // skip is the typical trigger).
+    const startBgm = () => {
+      this.sound.play(BGM_KEY, { loop: true, volume: 0.45 });
+    };
+    if (this.sound.locked) {
+      this.sound.once(Phaser.Sound.Events.UNLOCKED, startBgm);
+    } else {
+      startBgm();
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.sound.stopByKey(BGM_KEY));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.sound.stopByKey(BGM_KEY));
 

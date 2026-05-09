@@ -126,10 +126,14 @@ export class DialogueOverlay {
   }
 
   close() {
+    const closingNpcId = this.currentTree?.npcId ?? null;
     this.root.style.display = 'none';
     this.currentTree = null;
     this.currentNodeId = null;
     this.devConsole?.notifyDialogueClosed();
+    if (closingNpcId) {
+      window.dispatchEvent(new CustomEvent('fledgling:dialogue-closed', { detail: { npcId: closingNpcId } }));
+    }
     const fn = this.onClose;
     this.onClose = null;
     fn?.();

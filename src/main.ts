@@ -36,7 +36,31 @@ const NPC_SCENE_BINDINGS: Array<[string, NpcSceneKey]> = [
 const handlePemiAtBeach = (scene: Phaser.Scene) => {
   if (isFlagSet('met_pemi')) return;
   const pemi = npcById('pemi');
-  const dropPemi = () => spawnNpc(scene, pemi);
+  let pemiSprite: Phaser.GameObjects.Image | null = null;
+  const dropPemi = () => { pemiSprite = spawnNpc(scene, pemi); };
+
+  // Once Pemi's first conversation closes (which is the only path that sets
+  // `met_pemi`), she runs south past the dunes — matching her own line:
+  // "Go — go village. Naro. Go!". Listener is one-shot.
+  const onClosed = (ev: Event) => {
+    const detail = (ev as CustomEvent<{ npcId: string }>).detail;
+    if (detail?.npcId !== 'pemi') return;
+    if (!isFlagSet('met_pemi')) return;
+    if (!pemiSprite || !pemiSprite.scene) return;
+    window.removeEventListener('fledgling:dialogue-closed', onClosed);
+    const sprite = pemiSprite;
+    pemiSprite = null;
+    scene.tweens.add({
+      targets: sprite,
+      y: sprite.y + 140,
+      alpha: { from: 1, to: 0 },
+      duration: 1400,
+      ease: 'Sine.In',
+      onComplete: () => sprite.destroy(),
+    });
+  };
+  window.addEventListener('fledgling:dialogue-closed', onClosed);
+
   if (!hasSeenPrologue()) prologue.start(dropPemi);
   else dropPemi();
 };

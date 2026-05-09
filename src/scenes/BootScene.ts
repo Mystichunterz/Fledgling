@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SceneKeys, SpriteKeys } from '../assets/keys';
+import { AudioKeys, SceneKeys, SpriteKeys } from '../assets/keys';
 import { isDev } from '../engine/dev';
 
 export class BootScene extends Phaser.Scene {
@@ -46,9 +46,31 @@ export class BootScene extends Phaser.Scene {
       frameHeight: 16,
       spacing: 1,
     });
+    this.load.audio(AudioKeys.BGM_ISLAND, 'audio/Vows_Of_The_Awakened.mp3');
   }
 
   create() {
+    // Island BGM — loops for the whole gameplay session. Apply persisted
+    // mute state BEFORE play so a previously-muted player never hears a
+    // single unmuted frame. PlayerHudScene's top-right music button reads
+    // and toggles the same flag.
+    try {
+      if (window.localStorage.getItem('fledgling.musicMuted') === '1') {
+        this.sound.mute = true;
+      }
+    } catch { /* localStorage unavailable; default to unmuted */ }
+    // Browsers gate audio behind a user gesture. If the SoundManager is
+    // still locked, defer playback until Phaser fires `unlocked` (first
+    // pointerdown/keydown). Otherwise play immediately.
+    const startBgm = () => {
+      this.sound.play(AudioKeys.BGM_ISLAND, { loop: true, volume: 0.4 });
+    };
+    if (this.sound.locked) {
+      this.sound.once(Phaser.Sound.Events.UNLOCKED, startBgm);
+    } else {
+      startBgm();
+    }
+
     this.scene.run(SceneKeys.PLAYER_HUD);
     if (isDev()) this.scene.run(SceneKeys.DEBUG);
 

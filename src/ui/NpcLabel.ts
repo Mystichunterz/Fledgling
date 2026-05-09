@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-interface Followable { x: number; y: number; displayHeight: number; }
+type Followable = Phaser.Events.EventEmitter & { x: number; y: number; displayHeight: number };
 
 // Phaser's DOMElement uses a container positioned at the canvas parent's
 // top-left, but #game flex-centers the canvas inside a 100vh box so labels
@@ -61,6 +61,7 @@ export const attachLabel = (
   };
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
   scene.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
+  sprite.once(Phaser.GameObjects.Events.DESTROY, cleanup);
 
   return { el, cleanup };
 };

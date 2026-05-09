@@ -68,6 +68,7 @@ export function attachProximityHighlight(
   };
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
   scene.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
+  target.once(Phaser.GameObjects.Events.DESTROY, cleanup);
 
   return glow;
 }
