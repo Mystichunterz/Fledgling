@@ -9,8 +9,8 @@ This doc tracks where the integration work stands so a future cold session can r
 
 ## Build order (from `language-integration.md` §7, with parse-doc overrides)
 
-1. ✅ **Frames + lexicon** — commit `bdeece7`
-2. ⬜ **`polarQuestion` flag on `FilledFrame`**
+1. ✅ **Frames + lexicon** — commit `a43bcd1`
+2. ✅ **`polarQuestion` flag on `FilledFrame`** — commit `ef3ddd9`
 3. ⬜ Frame-tree types (`src/sim/frameDialogueTypes.ts`)
 4. ⬜ Phase resolver (extends `GameRegistry` with flags + endingChoice)
 5. ⬜ First NPC end-to-end (Naro)
@@ -20,7 +20,7 @@ This doc tracks where the integration work stands so a future cold session can r
 
 ---
 
-## Step 1 — what landed in `bdeece7`
+## Step 1 — what landed in `a43bcd1`
 
 5 new frames in `src/lang/frames.ts`:
 
@@ -62,41 +62,29 @@ All 43 tests pass; `tsc --noEmit` clean.
 
 ---
 
-## Step 2 — what to do next
+## Step 2 — what landed in `ef3ddd9`
 
-**Goal:** Add a `polarQuestion?: boolean` flag to `FilledFrame` so yes/no questions ("Did Maren ask you?", "You saw it?", "Are you hungry?") have a representable form. Currently questions only ride on `unknown` fillers, which can only express wh-questions.
+`FilledFrame` now carries an optional `polarQuestion?: boolean`.
 
-**Why this is needed:** The parse exercise found ~9 nodes that need polar Qs — see `dialogue-frame-parses.md` §8.2 #1. The current model degrades them to wh-Qs ("did you see X?" → "what did you see?"), which loses the meaning.
+- **`frames.ts`** — type + Zod schema extended; `validateFilledFrame` rejects `polarQuestion: true` mixed with any `unknown` filler (polar Q ⊕ wh-Q).
+- **`encoder.ts`** — both the verb-affix path and the simple-mode particle path now treat `polarQuestion === true` as a Q signal, identical to `hasUnknown`.
+- **`decoder.ts`** — both paths recover the flag: when a Q signal is detected (verb mood tag in inflectional mode, particle in simple mode) but no role filled with `unknown`, we set `polarQuestion: true` on the result. The simple-mode `stripMoodParticleSimple` now returns a `particleQ` boolean alongside `mood`/`rest`.
+- **`gloss.ts`** — Q tag fires for polar Qs the same way it does for wh-Qs.
 
-**Files to touch:**
+Test surface (`v2-features.test.ts`, new `describe("polar questions", …)`):
+- Encode polar SEE in tovari → `henu tovan renali` (verb gets `-li`).
+- Inflectional round-trip preserves `polarQuestion: true`.
+- Simple-mode round-trip (random "alpha" simple language) — Q particle appears in surface, decode recovers the flag.
+- Validator rejects polarQuestion + `unknown` filler.
+- Gloss tags include `Q` for polar Qs.
 
-1. `src/lang/frames.ts`
-   - Extend `FilledFrame` type and Zod schema with `polarQuestion?: boolean | undefined`
-   - Extend `validateFilledFrame`: reject `polarQuestion: true` together with any `unknown` filler (a frame is *either* polar Q *or* wh-Q, never both)
-
-2. `src/lang/encoder.ts`
-   - Find the place that picks the `Q` mood tag (currently triggered by `hasUnknown`). Make it also fire when `filled.polarQuestion === true`.
-
-3. `src/lang/decoder.ts`
-   - When the `Q` mood tag is present but no `unknown` filler is recovered, set `polarQuestion: true` on the decoded frame so encode/decode round-trips.
-
-4. `src/lang/gloss.ts`
-   - Tag the verb with `Q` morpheme tag when `polarQuestion === true` (matching encoder behavior).
-
-**Validator hint:** the constraint `polarQuestion ⊕ unknown-fillers` is the same kind of mutually-exclusive check that already exists for `unknown` filler count (max 1). Same shape, same place.
-
-**Test surface to add:** in `v2-features.test.ts`, a small `describe("polar questions", …)` block that:
-- Encodes a polar Q (e.g. SEE with no `unknown`, `polarQuestion: true`) and checks the surface contains the language's `Q` mood marker.
-- Round-trips it through decode and asserts `polarQuestion: true` survives.
-- Asserts the validator rejects a frame with both `polarQuestion: true` *and* an `unknown` filler.
-
-Estimated effort per the design doc: ~30 min.
+48 tests passing (was 43). `tsc --noEmit` clean.
 
 ---
 
-## Step 3 — frame-tree types (preview)
+## Step 3 — what to do next
 
-After step 2, the next standalone-no-runtime change is `src/sim/frameDialogueTypes.ts` per `language-integration.md` §5.1, **with the parse-doc revision**:
+**Goal:** Add `src/sim/frameDialogueTypes.ts` with the frame-tree node types per `language-integration.md` §5.1, **with the parse-doc revision** that `frames` is plural (not a single frame).
 
 ```ts
 export interface FrameNode {
@@ -108,11 +96,13 @@ export interface FrameNode {
 }
 ```
 
-The `frames` plural change is mandatory — 36% of authored nodes use multiple speech acts (see `dialogue-frame-parses.md` §8.4(a)). Renderer concatenates surface forms with sentence-boundary punctuation, gloss tokens flatten into one array.
+The plural is mandatory — 36% of authored nodes use multiple speech acts (see `dialogue-frame-parses.md` §8.4(a)). Renderer concatenates surface forms with sentence-boundary punctuation; gloss tokens flatten into one array.
 
-Effects table for choices: `dialogue-frame-parses.md` §8.5 has the canonical mapping.
+Also define `FrameChoice` (id, label/labelFrame, target, effects, requirements). Effects table for choices: `dialogue-frame-parses.md` §8.5 has the canonical mapping.
 
 Effect-placement convention: `+give:item` lives on the choice that **exits** a handover sequence (e.g. `NAR_HANDOVER_WOOD.continue`), not the choice that enters it. See parse doc §8.4(c).
+
+This is a standalone-no-runtime change — just the type module. No tests required (types only); a downstream check is that `tsc --noEmit` stays clean.
 
 ---
 
@@ -124,8 +114,8 @@ No revisions needed beyond what's in the design doc. Diary work is partial — `
 
 ## State at last update
 
-- `git log -1`: `bdeece7` (step 1)
-- `origin/main`: behind by step 1 — push when ready
-- Working tree: unrelated edits in `src/ui/App.tsx`, `src/ui/styles.css`, `src/sim/village-ui.ts`, `village.html` (touched by other work, not part of this stream)
-- Tests: 43 passing
+- `git log -1`: `ef3ddd9` (step 2)
+- `origin/main`: diverged — local has 2 fresh commits (`4c0b10d` progress log, `ef3ddd9` polar Q); origin has 4 commits not yet merged. Resolve before pushing.
+- Working tree: unrelated edits in `src/ui/App.tsx`, `src/ui/styles.css`, `src/sim/village-ui.ts`, `village.html` (touched by other work, not part of this stream — left unstaged)
+- Tests: 48 passing
 - Date: 2026-05-09
