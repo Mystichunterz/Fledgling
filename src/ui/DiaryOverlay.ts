@@ -123,17 +123,13 @@ export class DiaryOverlay {
     // Sync the button with Phaser's camera fade. The button is a DOM sibling
     // of the canvas, so the camera fade alone leaves it floating above the
     // black layer.
-    this.fadeOutHandler = (ev: Event) => {
-      const ms = (ev as CustomEvent<{ ms: number }>).detail?.ms ?? 200;
-      this.button.style.transition = `opacity ${ms}ms linear`;
+    this.fadeOutHandler = () => {
       this.button.style.opacity = '0';
       this.button.style.pointerEvents = 'none';
       // Don't leave the modal stranded mid-transition.
       if (this.isOpen) this.close();
     };
-    this.fadeInHandler = (ev: Event) => {
-      const ms = (ev as CustomEvent<{ ms: number }>).detail?.ms ?? 200;
-      this.button.style.transition = `opacity ${ms}ms linear`;
+    this.fadeInHandler = () => {
       this.button.style.opacity = '1';
       this.button.style.pointerEvents = 'auto';
     };
@@ -161,9 +157,11 @@ export class DiaryOverlay {
         0 4px 12px rgba(0, 0, 0, 0.25);
       cursor: pointer;
       z-index: 901;
-      pointer-events: auto;
+      pointer-events: none;
       user-select: none;
       display: flex; align-items: center; justify-content: center;
+      opacity: 0;
+      transition: opacity 200ms linear;
     `;
     btn.innerHTML = `
       <span style="position: relative; width: 100%; height: 100%; display: block;">
