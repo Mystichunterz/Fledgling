@@ -136,6 +136,11 @@ export class LighthouseScene extends Phaser.Scene {
     if (GameRegistry.beaconLit) return;
     GameRegistry.beaconLit = true;
     this.applyLitVisual(true);
+    // Hold a beat on the lit pyre so the flash + flame land, then cut to the
+    // end cutscene (cargo ship sailing off → fade to black → closing words).
+    this.time.delayedCall(2200, () => {
+      this.scene.start('end-cutscene');
+    });
   }
 
   private applyLitVisual(animate: boolean) {
