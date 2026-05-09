@@ -9,7 +9,6 @@ import { spawnPickupTiles } from './sim/pickupTiles';
 import { installHandoverListener } from './state/handovers';
 import { initDiary } from './sim/diary';
 import { DiaryOverlay } from './ui/DiaryOverlay';
-import { InventoryHud } from './ui/InventoryHud';
 import { EndScreen } from './ui/EndScreen';
 import { initFlags, isFlagSet } from './state/dialogueFlags';
 import { CrashPrologue, hasSeenPrologue } from './scenes/CrashPrologue';
@@ -18,7 +17,6 @@ initFlags();
 installHandoverListener();
 initDiary();
 new DiaryOverlay();
-new InventoryHud();
 new EndScreen();
 const prologue = new CrashPrologue();
 

@@ -30,6 +30,10 @@ export function giveItem(item: ItemId): void {
   GameRegistry.itemsCollected.add(item);
 }
 
+export function removeItem(item: ItemId): void {
+  GameRegistry.itemsCollected.delete(item);
+}
+
 export function clearItems(): void {
   GameRegistry.itemsCollected.clear();
   GameRegistry.beaconLit = false;

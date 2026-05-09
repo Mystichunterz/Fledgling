@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { FillerItem, NpcId, StateFlag } from './dialogueTypes';
 import type { NpcSceneKey } from './npcRoster';
 import { Depths } from '../engine/depths';
-import { GameRegistry } from '../state/GameRegistry';
+import { GameRegistry, giveItem } from '../state/GameRegistry';
 import { isFlagSet, setFlag } from '../state/dialogueFlags';
 
 interface PickupDef {
@@ -99,6 +99,7 @@ export const spawnPickupTiles = (scene: Phaser.Scene, sceneKey: NpcSceneKey): vo
       if (dx * dx + dy * dy > PICKUP_RADIUS_SQ) continue;
       const heldFlag = `holding_${tile.def.filler}` as const satisfies StateFlag;
       setFlag(heldFlag, true);
+      giveItem(tile.def.filler);
       hideTile(tile);
       window.dispatchEvent(new CustomEvent('fledgling:pickup', {
         detail: { filler: tile.def.filler },
