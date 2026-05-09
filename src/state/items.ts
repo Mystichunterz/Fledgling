@@ -43,4 +43,5 @@ export const ITEM_SPRITE: Partial<Record<ItemId, SpriteKey>> = {
   water:  SpriteKeys.ITEM_WATER,
   rope:   SpriteKeys.ITEM_ROPE,
   basket: SpriteKeys.ITEM_BASKET,
+  bread:  SpriteKeys.ITEM_BREAD,
 };

@@ -30,6 +30,7 @@ export const SpriteKeys = {
   ITEM_WATER: 'item_water',
   ITEM_ROPE:  'item_rope',
   ITEM_BASKET:'item_basket',
+  ITEM_BREAD: 'item_bread',
   PROP_DIARY: 'prop_diary',
   TILES_TERRAIN: 'tiles_terrain',
   PALM_TREE: 'palm_tree',
