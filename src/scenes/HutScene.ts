@@ -55,9 +55,10 @@ export class HutScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5)
       .setDepth(Depths.BG_GROUND + 1);
 
-    this.add.image(160, 160, SpriteKeys.LOC_HUT)
+    this.add.image(160, 170, SpriteKeys.LOC_HUT)
       .setOrigin(0.5, 1)
-      .setDepth(Depths.BG_DECOR + 160);
+      .setDisplaySize(140, 140)
+      .setDepth(Depths.BG_DECOR + 170);
 
     const props: Array<readonly [number, number, number]> = [
       [240, 200, 0xeee0a8],

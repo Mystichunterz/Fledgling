@@ -144,15 +144,17 @@ export class VillageScene extends Phaser.Scene {
         .setDepth(Depths.BG_DECOR + Math.round(l.y));
     }
 
-    // Statue — replaces the old "shrine" rectangle in the same plot.
-    this.add.image(240, 380, SpriteKeys.LOC_STATUE)
+    // Statue — central plaza marker.
+    this.add.image(640, 380, SpriteKeys.LOC_STATUE)
       .setOrigin(0.5, 1)
+      .setDisplaySize(72, 72)
       .setDepth(Depths.BG_DECOR + 380);
 
-    // Hut landmark on the west, near the bridge to HutScene.
-    this.add.image(140, 360, SpriteKeys.LOC_HUT)
+    // Hut — west of the statue.
+    this.add.image(520, 380, SpriteKeys.LOC_HUT)
       .setOrigin(0.5, 1)
-      .setDepth(Depths.BG_DECOR + 360);
+      .setDisplaySize(96, 96)
+      .setDepth(Depths.BG_DECOR + 380);
 
     // Roads — sit on top of the land bridges, run from the world edge into
     // the village interior. Player walks the path through mist to teleport.

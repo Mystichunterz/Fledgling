@@ -68,6 +68,7 @@ export class LighthouseScene extends Phaser.Scene {
 
     this.beacon = this.add.image(PYRE_X, PYRE_Y, SpriteKeys.LOC_BEACON)
       .setOrigin(0.5, 1)
+      .setDisplaySize(96, 96)
       .setDepth(Depths.BG_DECOR + 200);
 
     // Invisible click target spanning the full pyre. Doubles as the anchor
@@ -136,6 +137,7 @@ export class LighthouseScene extends Phaser.Scene {
 
     this.fire = this.add.image(PYRE_X, fireY, SpriteKeys.LOC_FIRE)
       .setOrigin(0.5, 1)
+      .setDisplaySize(48, 48)
       .setDepth(Depths.FX);
     this.flameGlow = this.add.rectangle(PYRE_X, fireY + 8, 120, 80, 0xff8030, 0.35)
       .setOrigin(0.5, 1)
