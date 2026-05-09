@@ -13,13 +13,26 @@ import type { FilledFrame } from '../../lang/frames';
 // without throwing. This catches concept-id typos and role-shape mismatches at
 // CI time rather than when the player opens dialogue.
 
+// `lines` accepts either the flat shape FilledFrame[] (single-speech-segment
+// nodes) or the per-segment FilledFrame[][] shape (interleaved speech). We
+// flatten both into the same encode-test stream.
 const collect = (
-  lines: Record<string, FilledFrame[]>,
+  lines: Record<string, FilledFrame[] | FilledFrame[][]>,
   options: Record<string, FilledFrame[][]>,
 ): { id: string; frame: FilledFrame }[] => {
   const out: { id: string; frame: FilledFrame }[] = [];
-  for (const [nodeId, frames] of Object.entries(lines)) {
-    frames.forEach((f, i) => out.push({ id: `${nodeId}.line[${i}]`, frame: f }));
+  for (const [nodeId, raw] of Object.entries(lines)) {
+    if (raw.length === 0) continue;
+    const isPerSegment = Array.isArray(raw[0]);
+    if (isPerSegment) {
+      (raw as FilledFrame[][]).forEach((seg, si) =>
+        seg.forEach((f, fi) => out.push({ id: `${nodeId}.line[${si}][${fi}]`, frame: f })),
+      );
+    } else {
+      (raw as FilledFrame[]).forEach((f, i) =>
+        out.push({ id: `${nodeId}.line[${i}]`, frame: f }),
+      );
+    }
   }
   for (const [nodeId, optArrays] of Object.entries(options)) {
     optArrays.forEach((arr, oi) =>
@@ -56,12 +69,18 @@ describe('NPC frame translations', () => {
   // sane after lexicon or template tweaks. Not strictly an assertion, but a
   // failing line here means the encoded form changed in a way worth noticing.
   it('renders representative surfaces', () => {
-    const enc = (frames: FilledFrame[]) => frames.map(f => encodeFrame(EXAMPLE_LANGUAGE, f)).join(' | ');
+    // Accept either flat or per-segment frame shapes; flatten before encode.
+    const flatten = (raw: FilledFrame[] | FilledFrame[][] | undefined): FilledFrame[] => {
+      if (!raw || raw.length === 0) return [];
+      return Array.isArray(raw[0]) ? (raw as FilledFrame[][]).flat() : (raw as FilledFrame[]);
+    };
+    const enc = (raw: FilledFrame[] | FilledFrame[][] | undefined) =>
+      flatten(raw).map(f => encodeFrame(EXAMPLE_LANGUAGE, f)).join(' | ');
     const samples = {
-      PEM_BEACH_INTRO: enc(PEMI_LINE_FRAMES.PEM_BEACH_INTRO!),
-      PEM_TELL_NARO: enc(PEMI_LINE_FRAMES.PEM_TELL_NARO!),
-      NAR_GREETING: enc(NARO_LINE_FRAMES.NAR_GREETING!),
-      NAR_NEXT_HINT: enc(NARO_LINE_FRAMES.NAR_NEXT_HINT!),
+      PEM_BEACH_INTRO: enc(PEMI_LINE_FRAMES.PEM_BEACH_INTRO),
+      PEM_TELL_NARO: enc(PEMI_LINE_FRAMES.PEM_TELL_NARO),
+      NAR_GREETING: enc(NARO_LINE_FRAMES.NAR_GREETING),
+      NAR_NEXT_HINT: enc(NARO_LINE_FRAMES.NAR_NEXT_HINT),
     };
     // Each surface should be non-empty and contain only ASCII letters / spaces /
     // separators — defends against accidental punctuation creeping into stems.

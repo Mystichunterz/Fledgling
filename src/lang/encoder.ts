@@ -26,6 +26,7 @@ import {
   tenseOf,
 } from "./language-spec.js";
 import { adaptToWordOrder, canonicalTemplate } from "./templates.js";
+import { isProperName, properNameDisplay } from "./properNames.js";
 
 // Glue an affix onto a stem. Empty form returns the stem unchanged.
 export function applyAffix(stem: string, affix: Affix): string {
@@ -65,8 +66,12 @@ function whStem(spec: LanguageSpec, role: RoleSpec): string {
   return entry.stem;
 }
 
-// Read the stem for a lexical entity reference.
+// Read the stem for a lexical entity reference. Proper names (NPC personal
+// names) bypass the lexicon and surface as the literal capitalised display
+// form — they're referential anchors, not vocabulary, and must stay
+// recognisable across every language seed.
 function stemForRef(spec: LanguageSpec, ref: EntityRef): string {
+  if (isProperName(ref.conceptId)) return properNameDisplay(ref.conceptId);
   const entry = spec.lexicon[ref.conceptId];
   if (!entry) {
     throw new Error(`Language ${spec.id} missing concept ${ref.conceptId}`);

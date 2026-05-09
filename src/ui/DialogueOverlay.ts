@@ -24,9 +24,6 @@ const encodeSurface = (frames: FilledFrame[]): string => {
   }
 };
 
-const escapeHtml = (s: string): string =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
 // Split an authored english string into ordered chunks. `(...)` becomes a stage
 // direction, `"..."` becomes quoted speech, anything else is incidental text.
 type EnglishChunk = { kind: 'stage' | 'speech' | 'text'; content: string };
@@ -56,57 +53,46 @@ const parseEnglish = (english: string): EnglishChunk[] => {
 // the position of the first non-stage chunk (which represents the dialogue,
 // whether the author wrote it as `"..."` or as bare unquoted prose). All other
 // non-stage chunks are dropped — the surface already concatenates every frame.
-// Returns parallel HTML + plain renderings: HTML drives the overlay (italic/dim
-// stage directions), plain feeds the diary.
-const composeSpeech = (english: string, surface: string): { html: string; plain: string } => {
-  if (!surface) return { html: escapeHtml(english), plain: english };
+const composeSpeech = (english: string, surface: string): string => {
+  if (!surface) return english;
   const chunks = parseEnglish(english);
-  if (chunks.length === 0) return { html: escapeHtml(surface), plain: surface };
+  if (chunks.length === 0) return surface;
   const hasStage = chunks.some(c => c.kind === 'stage');
-  if (!hasStage) return { html: escapeHtml(surface), plain: surface };
-  const stageHtml = (text: string) =>
-    `<span style="color:#a89878;font-style:italic;">(${escapeHtml(text)})</span>`;
-  const htmlParts: string[] = [];
-  const plainParts: string[] = [];
+  if (!hasStage) return surface;
+  const parts: string[] = [];
   let speechPlaced = false;
   for (const c of chunks) {
     if (c.kind === 'stage') {
-      htmlParts.push(stageHtml(c.content));
-      plainParts.push(`(${c.content})`);
+      parts.push(`(${c.content})`);
     } else if (!speechPlaced) {
-      htmlParts.push(`"${escapeHtml(surface)}"`);
-      plainParts.push(`"${surface}"`);
+      parts.push(`"${surface}"`);
       speechPlaced = true;
     }
   }
-  if (!speechPlaced) {
-    htmlParts.push(escapeHtml(surface));
-    plainParts.push(surface);
-  }
-  return { html: htmlParts.join(' '), plain: plainParts.join(' ') };
+  if (!speechPlaced) parts.push(surface);
+  return parts.join(' ');
 };
 
+// Marker shown when a speech segment or utterance option is authored without
+// frames. We never want to surface raw english as a fallback — the player is
+// learning the conlang and seeing english in place of conlang would defeat
+// that. Stage directions and gesture options stay english (they're not spoken
+// dialogue), but speech and utterance options must always render the conlang
+// surface or this marker.
+const UNENCODED_MARKER = '…';
+
 // Speech segments display as text; stage segments drive sprite anims and never
-// surface as text. When a speech segment carries frames we encode them into the
-// active language and weave the encoded surface back into the original english
-// structure so authored stage directions survive translation; otherwise we fall
-// back to the authored english verbatim.
-const renderLine = (segments: LineSegment[]): { html: string; plain: string } => {
-  const htmls: string[] = [];
-  const plains: string[] = [];
+// surface as text. When a speech segment carries frames we encode them into
+// the active language; when it doesn't, we surface the marker rather than
+// leak the authored english.
+const renderLine = (segments: LineSegment[]): string => {
+  const parts: string[] = [];
   for (const s of segments) {
     if (s.kind !== 'speech') continue;
     const surface = s.frames && s.frames.length > 0 ? encodeSurface(s.frames) : '';
-    if (!surface) {
-      htmls.push(escapeHtml(s.english));
-      plains.push(s.english);
-      continue;
-    }
-    const composed = composeSpeech(s.english, surface);
-    htmls.push(composed.html);
-    plains.push(composed.plain);
+    parts.push(surface || UNENCODED_MARKER);
   }
-  return { html: htmls.join(' '), plain: plains.join(' ') };
+  return parts.join(' ');
 };
 
 const applySideEffects = (effects?: NodeSideEffect[]) => {
@@ -236,7 +222,7 @@ export class DialogueOverlay {
     // Encounter hook for the diary to subscribe to. Diary tokenises the
     // displayed string, so we send the rendered surface, not the segment array.
     window.dispatchEvent(new CustomEvent('fledgling:encounter', {
-      detail: { speaker: node.speaker, line: rendered.plain, nodeId: node.id },
+      detail: { speaker: node.speaker, line: rendered, nodeId: node.id },
     }));
 
     this.paint(node, rendered);
@@ -252,7 +238,7 @@ export class DialogueOverlay {
     this.paint(node, renderLine(node.line));
   }
 
-  private paint(node: DialogueNode, rendered: { html: string; plain: string }) {
+  private paint(node: DialogueNode, rendered: string) {
     if (this.devConsole && this.currentTree) {
       this.devConsole.update(this.currentTree, node, GameRegistry.language);
     }
@@ -263,7 +249,7 @@ export class DialogueOverlay {
     // renderGlossed walks plain-text tokens and overlays the player's diary
     // guesses as floating italic tags. Stage directions stay as `(...)` text
     // — they tokenise to nothing the diary tracks, so they pass through.
-    renderGlossed(rendered.plain, this.lineEl);
+    renderGlossed(rendered, this.lineEl);
 
     this.choicesEl.innerHTML = '';
     const visible = node.options.filter(o => !o.gatedBy || isFlagSet(o.gatedBy));
@@ -299,7 +285,11 @@ export class DialogueOverlay {
         const surface = choice.frames && choice.frames.length > 0
           ? encodeSurface(choice.frames)
           : '';
-        const labelText = surface || choice.english;
+        // Player utterances must surface as conlang. Falling back to the
+        // authored english would teach the player nothing — show the
+        // unencoded marker instead so the gap is visible but not pretending
+        // to be the conlang surface.
+        const labelText = surface || UNENCODED_MARKER;
         prefix.textContent = `${i + 1}. "`;
         btn.appendChild(prefix);
         const labelSpan = document.createElement('span');

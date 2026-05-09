@@ -29,6 +29,7 @@ import {
   uniqueWords,
 } from "./phonology.js";
 import { customLanguageForSeed } from "./custom-languages.js";
+import { PROPER_NAMES, properNameDisplay } from "./properNames.js";
 
 // Re-export so callers don't have to import from prng directly.
 export { randomSeedString };
@@ -121,6 +122,17 @@ function generateLexicon(rng: Rng, phon: Phonology): Record<string, LexiconEntry
   lexicon["WH_ITEM"]     = { stem: shortStems[j++]!, category: "wh", semanticType: "ITEM" };
   lexicon["WH_LOCATION"] = { stem: shortStems[j++]!, category: "wh", semanticType: "LOCATION" };
   lexicon["WH_ABSTRACT"] = { stem: shortStems[j++]!, category: "wh", semanticType: "ABSTRACT" };
+  // Override proper-name entries with their literal lowercased display form.
+  // The encoder (via stemForRef + properNames) emits the capitalised display
+  // ("Naro"); the decoder normalises tokens to lowercase before lookup, so the
+  // lexicon stem must be the lowercased name for round-trip to hold.
+  for (const conceptId of PROPER_NAMES) {
+    lexicon[conceptId] = {
+      stem: properNameDisplay(conceptId).toLowerCase(),
+      category: "noun",
+      semanticType: "ANIMATE",
+    };
+  }
   return lexicon;
 }
 

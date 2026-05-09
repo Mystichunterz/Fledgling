@@ -49,6 +49,15 @@ export const EXAMPLE_LANGUAGE: LanguageSpec = {
     BOAT:    { stem: "vona",  category: "noun", semanticType: "ITEM" },
     ROPE:    { stem: "loka",  category: "noun", semanticType: "ITEM" },
     BASKET:  { stem: "neba",  category: "noun", semanticType: "ITEM" },
+    // Items / locations referenced by frame translations after the
+    // dialogue-frame audit. Stems chosen to avoid collisions with existing
+    // entries; they don't surface in player UI today.
+    PLANE:   { stem: "kovu",  category: "noun", semanticType: "ITEM" },
+    PRESS:   { stem: "muna",  category: "noun", semanticType: "LOCATION" },
+    TREE:    { stem: "denu",  category: "noun", semanticType: "LOCATION" },
+    SONG:    { stem: "lila",  category: "noun", semanticType: "ITEM" },
+    OLIVE:   { stem: "olva",  category: "noun", semanticType: "ITEM" },
+    END:     { stem: "kuvo",  category: "noun", semanticType: "LOCATION" },
 
     // Locations — original set
     FOREST: { stem: "luva",   category: "noun", semanticType: "LOCATION" },
@@ -91,6 +100,18 @@ export const EXAMPLE_LANGUAGE: LanguageSpec = {
     // Abstracts used by DECIDE.choice
     LEAVING: { stem: "fina", category: "noun", semanticType: "ABSTRACT" },
     STAYING: { stem: "muka", category: "noun", semanticType: "ABSTRACT" },
+    // Abstracts used by BE_STATE.state — Hala's "not yet" gating phrase and
+    // the propositional stay/go states distinct from the DECIDE.choice nouns.
+    NOT_YET:   { stem: "yeko", category: "noun", semanticType: "ABSTRACT" },
+    GO_HOME:   { stem: "vola", category: "noun", semanticType: "ABSTRACT" },
+    STAY_HERE: { stem: "tani", category: "noun", semanticType: "ABSTRACT" },
+    // Abstract qualities used by Naro's fruit description and several BE_STATE
+    // utterances ("you learn fast"). Added after the dialogue-frame audit.
+    ROUND: { stem: "robu", category: "noun", semanticType: "ABSTRACT" },
+    RED:   { stem: "rena", category: "noun", semanticType: "ABSTRACT" },
+    SWEET: { stem: "subi", category: "noun", semanticType: "ABSTRACT" },
+    FAST:  { stem: "fako", category: "noun", semanticType: "ABSTRACT" },
+    QUIET: { stem: "shela", category: "noun", semanticType: "ABSTRACT" },
 
     // Pronouns (inherently singular). Keyed by deictic person — these are
     // the surface forms for the "self" / "listener" / "reference" fillers.

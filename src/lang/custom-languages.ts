@@ -30,6 +30,7 @@ export const MALAY_LANGUAGE: LanguageSpec = {
     SAY:   { stem: "kata",  category: "verb", frame: "SAY" },
     MAKE:  { stem: "buat",  category: "verb", frame: "MAKE" },
     EAT:   { stem: "makan", category: "verb", frame: "EAT" },
+    BE_STATE: { stem: "rasa",  category: "verb", frame: "BE_STATE" },
     GREET:  { stem: "salam",   category: "verb", frame: "GREET" },
     AFFIRM: { stem: "setuju",  category: "verb", frame: "AFFIRM" },
     DENY:   { stem: "tolak",   category: "verb", frame: "DENY" },
@@ -83,17 +84,25 @@ export const MALAY_LANGUAGE: LanguageSpec = {
     CHILD:         { stem: "kanak",   category: "noun", semanticType: "ANIMATE" },
     SHRINE_KEEPER: { stem: "penjaga", category: "noun", semanticType: "ANIMATE" },
     // NPC proper names — kept literal across language specs so the player
-    // recognises Pemi/Naro/etc. by name regardless of seed.
-    PEMI:          { stem: "Pemi", category: "noun", semanticType: "ANIMATE" },
-    NARO:          { stem: "Naro", category: "noun", semanticType: "ANIMATE" },
-    LEMU:          { stem: "Lemu", category: "noun", semanticType: "ANIMATE" },
-    TOKA:          { stem: "Toka", category: "noun", semanticType: "ANIMATE" },
-    SENU:          { stem: "Senu", category: "noun", semanticType: "ANIMATE" },
-    HALA:          { stem: "Hala", category: "noun", semanticType: "ANIMATE" },
+    // recognises Pemi/Naro/etc. by name regardless of seed. Lowercased
+    // because the decoder normalises tokens to lowercase before lookup;
+    // sprite labels still come from npcRoster.displayName for capitalisation.
+    PEMI:          { stem: "pemi", category: "noun", semanticType: "ANIMATE" },
+    NARO:          { stem: "naro", category: "noun", semanticType: "ANIMATE" },
+    LEMU:          { stem: "lemu", category: "noun", semanticType: "ANIMATE" },
+    TOKA:          { stem: "toka", category: "noun", semanticType: "ANIMATE" },
+    SENU:          { stem: "senu", category: "noun", semanticType: "ANIMATE" },
+    HALA:          { stem: "hala", category: "noun", semanticType: "ANIMATE" },
 
     // Abstracts used by DECIDE.choice
     LEAVING: { stem: "pergi",   category: "noun", semanticType: "ABSTRACT" },
     STAYING: { stem: "tinggal", category: "noun", semanticType: "ABSTRACT" },
+    // Abstracts used by BE_STATE.state — Hala's "not yet" gating phrase, plus
+    // the propositional stay/go states distinct from the DECIDE.choice nouns.
+    GOOD:      { stem: "baik",   category: "noun", semanticType: "ABSTRACT" },
+    NOT_YET:   { stem: "belum",  category: "noun", semanticType: "ABSTRACT" },
+    GO_HOME:   { stem: "pulang", category: "noun", semanticType: "ABSTRACT" },
+    STAY_HERE: { stem: "kekal",  category: "noun", semanticType: "ABSTRACT" },
 
     // Pronouns (singular). "saya" is the polite first person; "kamu" is the
     // informal second person; "dia" covers third-person reference.
@@ -215,13 +224,15 @@ export const ENGLISH_LANGUAGE: LanguageSpec = {
     GUARD:         { stem: "guard",  category: "noun", semanticType: "ANIMATE" },
     CHILD:         { stem: "child",  category: "noun", semanticType: "ANIMATE" },
     SHRINE_KEEPER: { stem: "keeper", category: "noun", semanticType: "ANIMATE" },
-    // NPC proper names — kept literal across language specs.
-    PEMI:          { stem: "Pemi", category: "noun", semanticType: "ANIMATE" },
-    NARO:          { stem: "Naro", category: "noun", semanticType: "ANIMATE" },
-    LEMU:          { stem: "Lemu", category: "noun", semanticType: "ANIMATE" },
-    TOKA:          { stem: "Toka", category: "noun", semanticType: "ANIMATE" },
-    SENU:          { stem: "Senu", category: "noun", semanticType: "ANIMATE" },
-    HALA:          { stem: "Hala", category: "noun", semanticType: "ANIMATE" },
+    // NPC proper names — kept literal across language specs. Lowercased so
+    // the decoder's lowercase tokeniser can find them; sprite labels still
+    // come from npcRoster.displayName for display capitalisation.
+    PEMI:          { stem: "pemi", category: "noun", semanticType: "ANIMATE" },
+    NARO:          { stem: "naro", category: "noun", semanticType: "ANIMATE" },
+    LEMU:          { stem: "lemu", category: "noun", semanticType: "ANIMATE" },
+    TOKA:          { stem: "toka", category: "noun", semanticType: "ANIMATE" },
+    SENU:          { stem: "senu", category: "noun", semanticType: "ANIMATE" },
+    HALA:          { stem: "hala", category: "noun", semanticType: "ANIMATE" },
 
     // Abstracts used by DECIDE.choice. Gerund forms — they're nominal here,
     // not verbal; the MOVE verb is "go", so no stem collision with LEAVING.

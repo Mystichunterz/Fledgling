@@ -84,8 +84,11 @@ export const FRAMES: Record<string, FrameSpec> = {
     category: "state",
     roles: [
       // Items, animates, and locations can all be figures: "where's the flint",
-      // "the shrine-keeper is at the shrine", "the hut is west".
-      { name: "figure", types: ["ITEM", "ANIMATE", "LOCATION"], grammar: "subject" },
+      // "the shrine-keeper is at the shrine", "the hut is west". ANIMATE is
+      // listed first so a wildcarded figure ("who is at the well?") picks the
+      // ANIMATE wh-word rather than the ITEM one — players in this game are
+      // always asking about people, not objects, when probing locations.
+      { name: "figure", types: ["ANIMATE", "ITEM", "LOCATION"], grammar: "subject" },
       { name: "ground", types: ["LOCATION"],                    grammar: "oblique" },
     ],
   },

@@ -9,6 +9,7 @@ import {
   isPhaticGreet,
   isPronoun,
 } from "./frames.js";
+import { isProperName, properNameDisplay } from "./properNames.js";
 
 // Rough English realization of a FilledFrame. Used in the workbench so the
 // player can sanity-check what a frame "means" without parsing the conlang
@@ -37,6 +38,11 @@ const VERBS: Record<string, Verb> = {
   EAT:         { base: "eat",   thirdSg: "eats",   past: "ate" },
   BE_STATE:    { base: "be",    thirdSg: "is",     past: "was" },
   BE_IDENTITY: { base: "be",    thirdSg: "is",     past: "was" },
+  GREET:    { base: "greet", thirdSg: "greets", past: "greeted" },
+  AFFIRM:   { base: "agree", thirdSg: "agrees", past: "agreed" },
+  DENY:     { base: "disagree", thirdSg: "disagrees", past: "disagreed" },
+  DECIDE:   { base: "choose", thirdSg: "chooses", past: "chose" },
+  KNOW:     { base: "know",  thirdSg: "knows",  past: "knew" },
 };
 
 // Per-frame English argument layout: which role is the subject and the
@@ -63,6 +69,11 @@ const TEMPLATES: Record<string, Template> = {
   EAT:         { subject: "agent",       args: [{ role: "patient" }] },
   BE_STATE:    { subject: "experiencer", args: [{ role: "state" }] },
   BE_IDENTITY: { subject: "entity",      args: [{ role: "identity" }] },
+  GREET:    { subject: "greeter",     args: [{ role: "addressee" }] },
+  AFFIRM:   { subject: "agreer",      args: [{ role: "proposition", prep: "with" }] },
+  DENY:     { subject: "disagreer",   args: [{ role: "proposition", prep: "with" }] },
+  DECIDE:   { subject: "decider",     args: [{ role: "choice" }] },
+  KNOW:     { subject: "knower",      args: [{ role: "object" }] },
 };
 
 // ── Agreement & noun phrases ─────────────────────────────────────
@@ -96,6 +107,10 @@ function nounPhrase(
     return "it"; // reference — singular generic
   }
   if (isEntityRef(filler)) {
+    // Proper names (NPC personal names) surface as the bare capitalised
+    // display form — no article, no lowercase, no pluralisation. They're
+    // referential anchors, not vocabulary.
+    if (isProperName(filler.conceptId)) return properNameDisplay(filler.conceptId);
     const word = filler.conceptId.toLowerCase();
     // ABSTRACT entities (state qualities) don't take an article in English:
     // "I am good", not "I am the good".
@@ -160,21 +175,39 @@ function capitalize(s: string): string {
 }
 
 // Render the post-verb argument list, optionally skipping a role (used
-// when that role has been fronted as a wh-word).
+// when that role has been fronted as a wh-word). When `dropUnfilled` is
+// set, args whose filler is undefined or the wh-pronoun "unknown" are
+// also omitted — used by the imperative branch so "Go!" doesn't render
+// as "Go to where!" when the destination is open.
 function renderArgs(
   frame: FilledFrame,
   spec: { roles: RoleSpec[] },
   tmpl: Template,
   skipRole?: string,
+  dropUnfilled?: boolean,
 ): string {
   const out: string[] = [];
   for (const a of tmpl.args) {
     if (a.role === skipRole) continue;
+    const filler = frame.roles[a.role];
+    if (dropUnfilled && (filler === undefined || filler === "unknown")) continue;
     const role = spec.roles.find((r) => r.name === a.role)!;
-    const np = nounPhrase(frame.roles[a.role], role, "object");
+    const np = nounPhrase(filler, role, "object");
     out.push(a.prep ? `${a.prep} ${np}` : np);
   }
   return out.join(" ").trim();
+}
+
+// DECIDE renders idiomatically when the abstract choice is one of the
+// canonical commitment concepts: "I choose the leaving" → "I choose to leave".
+const DECIDE_INFINITIVE: Record<string, string> = {
+  LEAVING: "to leave",
+  STAYING: "to stay",
+  GOING: "to go",
+};
+function decideInfinitive(filler: RoleFiller | undefined): string | null {
+  if (!filler || !isEntityRef(filler)) return null;
+  return DECIDE_INFINITIVE[filler.conceptId] ?? null;
 }
 
 // ── Main entry point ─────────────────────────────────────────────
@@ -205,9 +238,11 @@ function englishClause(frame: FilledFrame, opts: ClauseOpts = {}): string {
   const isBe = verb.base === "be";
 
   // Imperatives — drop subject, base form. "Give the flint to me!"
+  // Unfilled / unknown role-fillers are dropped (you can't command someone
+  // to "go to where" — the destination just doesn't get named).
   if (isCommand) {
     const head = negated ? `Don't ${verb.base}` : capitalize(verb.base);
-    const args = renderArgs(frame, spec, tmpl);
+    const args = renderArgs(frame, spec, tmpl, undefined, true);
     return `${head}${args ? " " + args : ""}!`;
   }
 
@@ -254,6 +289,32 @@ function englishClause(frame: FilledFrame, opts: ClauseOpts = {}): string {
 
   // Plain statement.
   const subj = nounPhrase(subjectFiller, subjectRole, "subject");
+
+  // AFFIRM / DENY with a `reference` proposition reads as a bare "Yes."/"No."
+  // — this is the canonical "yes / all right / no" usage where the proposition
+  // is anaphoric to the prior turn. Concrete or nested propositions fall
+  // through to the standard template ("I agree with the bread", "I disagree
+  // that you leave").
+  if (
+    (frame.predicate === "AFFIRM" || frame.predicate === "DENY") &&
+    frame.roles["proposition"] === "reference" &&
+    !negated
+  ) {
+    return frame.predicate === "AFFIRM" ? "Yes." : "No.";
+  }
+
+  // DECIDE with one of the canonical commitment-concept choices (LEAVING /
+  // STAYING / GOING) reads better as "I choose to leave" than the literal
+  // "I choose the leaving".
+  if (frame.predicate === "DECIDE") {
+    const inf = decideInfinitive(frame.roles["choice"]);
+    if (inf) {
+      const v = negated
+        ? `${negAux(subjectAgr, tense)} ${verb.base}`
+        : inflect(verb, subjectAgr, tense);
+      return `${capitalize(subj)} ${v} ${inf}.`;
+    }
+  }
 
   // BE_IDENTITY: render the `identity` slot as a bare proper name
   // ("I am Pemi.") rather than the article-prefixed default ("I am the
