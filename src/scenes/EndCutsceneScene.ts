@@ -22,6 +22,11 @@ const PHASE = {
   black: 400,
 };
 
+// Sea surface is at y=110. Sprite has a red below-waterline strip at its
+// bottom; sit the sprite a few px into the sea so the waterline-paint on the
+// hull lines up with the sea surface and the hull looks sea-borne.
+const SHIP_BASE_Y = 114;
+
 const EXPO_LINES: readonly string[] = [
   'The fire on the cliff found the sea.',
   'A ship answered, the way it answered before.',
@@ -177,18 +182,19 @@ export class EndCutsceneScene extends Phaser.Scene {
     }
 
     // The ship rides the horizon line.
-    this.ship = this.add.image(this.shipStartX, 108, SHIP_KEY)
+    this.ship = this.add.image(this.shipStartX, SHIP_BASE_Y, SHIP_KEY)
       .setOrigin(0.5, 1)
       .setDepth(5);
-    // setDisplaySize after preload finishes so we know the source dims; do
-    // it once the texture is in. Default to 64-wide if dimensions missing.
+    // Sprite is tight-cropped to the ship's bounding box (1102×436, ~2.53:1)
+    // so origin-Y=1 lines up with the visible hull bottom. Pick a target width
+    // and let height fall out of the aspect.
     const tex = this.textures.get(SHIP_KEY);
     if (tex && tex.source[0]) {
       const src = tex.source[0];
-      const targetW = 64;
+      const targetW = 80;
       this.ship.setDisplaySize(targetW, targetW * (src.height / src.width));
     } else {
-      this.ship.setDisplaySize(64, 32);
+      this.ship.setDisplaySize(80, 32);
     }
 
     this.overlay = this.add.rectangle(
@@ -219,14 +225,14 @@ export class EndCutsceneScene extends Phaser.Scene {
     // Ship enters from off-screen left during the hold, easing in.
     const t = Phaser.Math.Clamp(elapsed / PHASE.hold, 0, 1);
     this.ship.x = -40 + (this.shipStartX - -40) * t;
-    this.ship.y = 108 + Math.sin(this.time.now / 700) * 0.6;
+    this.ship.y = SHIP_BASE_Y + Math.sin(this.time.now / 700) * 0.6;
     if (elapsed >= PHASE.hold) this.enterPhase('sail');
   }
 
   private tickSail(elapsed: number) {
     const t = Phaser.Math.Clamp(elapsed / PHASE.sail, 0, 1);
     this.ship.x = this.shipStartX + (this.shipEndX - this.shipStartX) * t;
-    this.ship.y = 108 + Math.sin(this.time.now / 700) * 0.6;
+    this.ship.y = SHIP_BASE_Y + Math.sin(this.time.now / 700) * 0.6;
     if (elapsed >= PHASE.sail) this.enterPhase('fade');
   }
 
