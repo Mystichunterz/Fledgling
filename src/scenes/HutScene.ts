@@ -66,18 +66,6 @@ export class HutScene extends Phaser.Scene {
       .setDisplaySize(140, 140)
       .setDepth(Depths.BG_DECOR + 170);
 
-    const props: Array<readonly [number, number, number]> = [
-      [240, 200, 0xeee0a8],
-      [300, 200, 0xeee0a8],
-      [360, 200, 0xc0c8d0],
-    ];
-    for (const [x, y, color] of props) {
-      this.add.rectangle(x, y, 14, 16, color)
-        .setOrigin(0.5, 1)
-        .setStrokeStyle(1, 0x2a1a0a)
-        .setDepth(Depths.BG_DECOR + Math.round(y));
-    }
-
     const spawn = resolveSpawn(SPAWN_POINTS, this.spawnAt, 'default');
     this.player = new Player(
       this,
