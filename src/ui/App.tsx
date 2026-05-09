@@ -10,6 +10,7 @@ import {
 } from "../lang/frames.js";
 import {
   Case,
+  Difficulty,
   LanguageSpec,
   LexiconEntry,
   MoodTag,
@@ -104,6 +105,9 @@ export function App() {
   // The seed currently displayed in the masthead. Empty when the seed
   // field is editable but unsubmitted, or when on the example language.
   const [seed, setSeed] = useState<string>("");
+  // Difficulty tier passed to randomLanguage. "full" = full inflection;
+  // "simple" = bare stems with sentence-level mood particles.
+  const [difficulty, setDifficulty] = useState<Difficulty>("full");
   // Lifted so the parse seed can refresh when the language changes.
   const [parseInput, setParseInput] = useState<string>(() =>
     encodeFrame(EXAMPLE_LANGUAGE, PARSE_SEED_FRAME),
@@ -123,7 +127,7 @@ export function App() {
   const regenerate = () => {
     const trimmed = seed.trim();
     const used = trimmed === "" ? randomSeedString() : trimmed;
-    installLanguage(randomLanguage(used));
+    installLanguage(randomLanguage(used, difficulty));
     setSeed(used);
   };
 
@@ -140,6 +144,8 @@ export function App() {
         <Masthead
           seed={seed}
           setSeed={setSeed}
+          difficulty={difficulty}
+          setDifficulty={setDifficulty}
           onRegenerate={regenerate}
           onReset={reset}
           canReset={!isExample}
@@ -160,12 +166,16 @@ export function App() {
 function Masthead({
   seed,
   setSeed,
+  difficulty,
+  setDifficulty,
   onRegenerate,
   onReset,
   canReset,
 }: {
   seed: string;
   setSeed: (s: string) => void;
+  difficulty: Difficulty;
+  setDifficulty: (d: Difficulty) => void;
   onRegenerate: () => void;
   onReset: () => void;
   canReset: boolean;
@@ -176,6 +186,9 @@ function Masthead({
   const oblique = L.syntax.obliquePosition;
   const affixPosition = L.morphology.case.NOM.position;
   const stemCount = Object.keys(L.lexicon).length;
+  // Languages without an explicit difficulty (the example fixture) are
+  // shown as "full" — they use the full inflectional engine.
+  const activeDifficulty: Difficulty = L.difficulty ?? "full";
   return (
     <header>
       <div className="masthead">
@@ -189,6 +202,27 @@ function Masthead({
           <div><strong>Language</strong> {L.id}</div>
           <div>{stemCount} lexical entries</div>
           <div>frame ↔ surface bidirectional</div>
+          <div className="lang-actions difficulty-row" role="group" aria-label="difficulty">
+            <span className="difficulty-label">difficulty</span>
+            <button
+              type="button"
+              className="pill difficulty-pill"
+              aria-pressed={difficulty === "simple"}
+              onClick={() => setDifficulty("simple")}
+              title="bare stems · mood as sentence particle"
+            >
+              simple
+            </button>
+            <button
+              type="button"
+              className="pill difficulty-pill"
+              aria-pressed={difficulty === "full"}
+              onClick={() => setDifficulty("full")}
+              title="case + tense + number affixes, optional agreement"
+            >
+              full
+            </button>
+          </div>
           <div className="lang-actions">
             <input
               className="seed-input"
@@ -220,6 +254,8 @@ function Masthead({
       </div>
       <p className="lang-tag">
         <span className="lang-name">{L.id}</span>
+        <span className="sep">·</span>
+        <span className={`difficulty-tag is-${activeDifficulty}`}>{activeDifficulty}</span>
         <span className="sep">·</span>
         word order <strong>{order}</strong>
         <span className="sep">·</span>
@@ -451,11 +487,16 @@ function RoleEditor({
   const L = useLanguage();
   const opts = compatibleConcepts(L, role.types);
   const isWild = value === "?";
-  const selectValue = isWild ? "?" : value.conceptId;
+  const isNested = !isWild && typeof value === "object" && "kind" in value;
+  const selectValue = isWild
+    ? "?"
+    : isNested
+      ? "(nested)"
+      : (value as { conceptId: string }).conceptId;
 
   // Determine which wh-word would be used for this role's wildcard.
   const whConcept = WH_FOR_TYPE[role.types[0]!];
-  const whEntry = L.lexicon[whConcept];
+  const whEntry = whConcept ? L.lexicon[whConcept] : undefined;
 
   return (
     <div className={`role-row ${isWild ? "is-wild" : ""}`}>
@@ -638,14 +679,18 @@ function FrameDisplay({ frame }: { frame: FilledFrame }) {
                   <span className="filler wh">
                     ? · expects {role.types[0]}
                   </span>
-                ) : (
+                ) : filler && typeof filler === "object" && "kind" in filler ? (
                   <span className="filler">
-                    {filler?.conceptId}{" "}
+                    [{filler.frame.predicate}] <span className="muted">(nested)</span>
+                  </span>
+                ) : filler && typeof filler === "object" && "conceptId" in filler ? (
+                  <span className="filler">
+                    {filler.conceptId}{" "}
                     <span className="muted">
-                      ({filler?.type.toLowerCase()})
+                      ({filler.type.toLowerCase()})
                     </span>
                   </span>
-                )}
+                ) : null}
               </div>
             );
           })}

@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { FilledFrame } from "./frames.js";
+import { FilledFrame, isEntityRef, isNestedFrame } from "./frames.js";
 import { encodeFrame } from "./encoder.js";
 import { ParseError, decodeText } from "./decoder.js";
 import { EXAMPLE_LANGUAGE } from "./example-language.js";
@@ -69,7 +69,8 @@ function describe(filled: FilledFrame): string {
   const parts = [filled.predicate, `[${filled.mood}]`];
   for (const [name, filler] of Object.entries(filled.roles)) {
     if (filler === "?") parts.push(`${name}=?`);
-    else parts.push(`${name}=${filler.conceptId}`);
+    else if (isNestedFrame(filler)) parts.push(`${name}=[${describe(filler.frame)}]`);
+    else if (isEntityRef(filler)) parts.push(`${name}=${filler.conceptId}`);
   }
   return parts.join(" ");
 }

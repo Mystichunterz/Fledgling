@@ -177,6 +177,9 @@ function* enumerateFilledFrames(): Generator<FilledFrame> {
     const fillerOptions: RoleFiller[][] = frame.roles.map((role) => {
       const concrete: RoleFiller[] = [];
       for (const t of role.types) {
+        // BY_TYPE only covers the original 3 referent types; new ones
+        // (ABSTRACT, EVENT) aren't directly enumerable here.
+        if (t !== "ANIMATE" && t !== "ITEM" && t !== "LOCATION") continue;
         for (const id of BY_TYPE[t]) {
           concrete.push({ type: t, conceptId: id });
         }
@@ -332,15 +335,13 @@ function framesEqual(a: FilledFrame, b: FilledFrame): boolean {
     const bv = b.roles[k];
     if (av === "?" || bv === "?") {
       if (av !== bv) return false;
+    } else if (
+      av && bv && typeof av === "object" && typeof bv === "object"
+      && "conceptId" in av && "conceptId" in bv
+    ) {
+      if (av.type !== bv.type || av.conceptId !== bv.conceptId) return false;
     } else {
-      if (
-        !av ||
-        !bv ||
-        av.type !== bv.type ||
-        av.conceptId !== bv.conceptId
-      ) {
-        return false;
-      }
+      return false;
     }
   }
   return true;

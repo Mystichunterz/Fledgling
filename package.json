@@ -11,9 +11,14 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "demo": "tsx src/lang/demo.ts"
+    "demo": "tsx src/lang/demo.ts",
+    "demo:hunger": "tsx src/sim/hunger-demo.ts",
+    "demo:parse": "tsx src/lang/parse-demo.ts",
+    "demo:village": "vite --open /village.html"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
+    "groq-sdk": "^1.1.2",
     "phaser": "^4.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

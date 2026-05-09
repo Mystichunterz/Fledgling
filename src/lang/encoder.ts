@@ -1,7 +1,15 @@
 import {
+  EntityRef,
   FRAMES,
   FilledFrame,
+  Mood,
+  Number_,
+  RoleFiller,
   RoleSpec,
+  isEntityRef,
+  isNestedFrame,
+  isWildcard,
+  numberOf,
   validateFilledFrame,
 } from "./frames.js";
 import {
@@ -10,10 +18,12 @@ import {
   WH_FOR_TYPE,
   caseForGrammar,
   moodTagOf,
+  tenseOf,
 } from "./language-spec.js";
+import { adaptToWordOrder, canonicalTemplate } from "./templates.js";
 
 // Glue an affix onto a stem. Empty form returns the stem unchanged.
-function applyAffix(stem: string, affix: Affix): string {
+export function applyAffix(stem: string, affix: Affix): string {
   if (affix.form === "") return stem;
   return affix.position === "prefix"
     ? affix.form + stem
@@ -32,67 +42,117 @@ function verbForFrame(spec: LanguageSpec, frameId: string): string {
   );
 }
 
-// Build the surface word for one role: stem (or wh-stem) + case affix.
+// Look up the bare stem for a wh-word matching the role's primary type.
+function whStem(spec: LanguageSpec, role: RoleSpec): string {
+  const primaryType = role.types[0]!;
+  const whConcept = WH_FOR_TYPE[primaryType];
+  if (!whConcept) {
+    throw new Error(
+      `Role "${role.name}" type ${primaryType} has no wh-word`,
+    );
+  }
+  const entry = spec.lexicon[whConcept];
+  if (!entry) {
+    throw new Error(
+      `Language ${spec.id} missing wh-word for type ${primaryType} (${whConcept})`,
+    );
+  }
+  return entry.stem;
+}
+
+// Read the stem for a non-wildcard, non-nested filler.
+function stemForRef(spec: LanguageSpec, ref: EntityRef): string {
+  const entry = spec.lexicon[ref.conceptId];
+  if (!entry) {
+    throw new Error(`Language ${spec.id} missing concept ${ref.conceptId}`);
+  }
+  return entry.stem;
+}
+
+// Build the surface word for one role: stem + number + case.
+// Affixes stack inside-out so suffixing langs get stem+number+case;
+// prefixing langs get case+number+stem.
 function wordForRole(
   spec: LanguageSpec,
   role: RoleSpec,
-  filler: FilledFrame["roles"][string],
+  filler: EntityRef | "?",
 ): string {
   let stem: string;
-  if (filler === "?") {
-    // Pick the wh-word matching the role's primary expected type.
-    const primaryType = role.types[0];
-    if (!primaryType) {
-      throw new Error(`Role ${role.name} has no types`);
-    }
-    const whConcept = WH_FOR_TYPE[primaryType];
-    const entry = spec.lexicon[whConcept];
-    if (!entry) {
-      throw new Error(
-        `Language ${spec.id} missing wh-word for type ${primaryType} (${whConcept})`,
-      );
-    }
-    stem = entry.stem;
+  let number: Number_;
+  if (isWildcard(filler)) {
+    stem = whStem(spec, role);
+    number = "sg"; // wh-words are conventionally singular
   } else {
-    const entry = spec.lexicon[filler.conceptId];
-    if (!entry) {
-      throw new Error(
-        `Language ${spec.id} missing concept ${filler.conceptId}`,
-      );
-    }
-    stem = entry.stem;
+    stem = stemForRef(spec, filler);
+    number = numberOf(filler);
   }
+  const numAffix = spec.morphology.number[number];
   const caseTag = caseForGrammar(spec, role.grammar);
   const caseAffix = spec.morphology.case[caseTag];
-  return applyAffix(stem, caseAffix);
+  // Apply number first so it sits closer to the stem than case
+  // (suffixing: stem+NUM+CASE; prefixing: CASE+NUM+stem).
+  return applyAffix(applyAffix(stem, numAffix), caseAffix);
 }
 
-// Place subject(s) (S), object(s) (O), and verb (V) according to the
-// language's basic word order. Returns an ordered list of slots.
-function orderSOV(
-  wordOrder: LanguageSpec["syntax"]["wordOrder"],
-  S: string[],
-  O: string[],
-  V: string,
-): string[] {
-  const slots: Record<"S" | "O" | "V", string[]> = {
-    S,
-    O,
-    V: [V],
-  };
-  const order = wordOrder.split("") as ("S" | "O" | "V")[];
-  return order.flatMap((letter) => slots[letter]);
+// Build the verb word: stem + tense + (agreement-number) + mood + (negation).
+function wordForVerb(
+  spec: LanguageSpec,
+  frame: FilledFrame,
+  subjectNumber: Number_,
+): string {
+  const stem = verbForFrame(spec, frame.predicate);
+  const tense = tenseOf(frame);
+  let word = applyAffix(stem, spec.morphology.tense[tense]);
+  if (spec.syntax.agreement.subjectVerbNumber) {
+    word = applyAffix(word, spec.morphology.number[subjectNumber]);
+  }
+  const moodTag = moodTagOf(frame.mood);
+  word = applyAffix(word, spec.morphology.mood[moodTag]);
+  if (frame.negated && spec.syntax.negationStrategy === "affix") {
+    word = applyAffix(word, spec.morphology.negation);
+  }
+  return word;
 }
 
-// Insert oblique-case words relative to the verb.
-function insertObliques(
+// Determine the subject's number from a frame. For nested-frame fillers in
+// subject position (theoretically possible), default to sg.
+function subjectNumberOf(spec: LanguageSpec, frame: FilledFrame): Number_ {
+  const frameSpec = FRAMES[frame.predicate];
+  if (!frameSpec) return "sg";
+  const subjectRole = frameSpec.roles.find((r) => r.grammar === "subject");
+  if (!subjectRole) return "sg";
+  const filler = frame.roles[subjectRole.name];
+  if (filler === undefined) return "sg";
+  if (isWildcard(filler)) return "sg";
+  if (isEntityRef(filler)) return numberOf(filler);
+  return "sg";
+}
+
+// Render one role as either a single word, a multi-word phrase (for nested
+// frames), or omit it (when a content-role nested frame is too complex).
+function renderRoleFiller(
+  spec: LanguageSpec,
+  role: RoleSpec,
+  filler: RoleFiller,
+): string {
+  if (isNestedFrame(filler)) {
+    // Recursively encode the nested frame as its own clause.
+    return encodeFrameInner(spec, filler.frame);
+  }
+  return wordForRole(spec, role, filler);
+}
+
+// Insert oblique-case words relative to the verb when the template doesn't
+// already pin them. (When a template puts "oblique" before "subject", we
+// honour that placement and skip this insertion.)
+function placeObliquesAroundVerb(
   base: string[],
-  verb: string,
+  verbWord: string,
   obliques: string[],
   position: "pre-verb" | "post-verb",
 ): string[] {
   if (obliques.length === 0) return base;
-  const verbIdx = base.indexOf(verb);
+  const verbIdx = base.indexOf(verbWord);
   if (verbIdx < 0) {
     throw new Error("Verb not found in syntactic frame");
   }
@@ -100,52 +160,91 @@ function insertObliques(
   return [...base.slice(0, insertAt), ...obliques, ...base.slice(insertAt)];
 }
 
-export function encodeFrame(
-  spec: LanguageSpec,
-  filled: FilledFrame,
-): string {
-  validateFilledFrame(filled);
-  const frame = FRAMES[filled.predicate];
-  if (!frame) throw new Error(`Unknown frame: ${filled.predicate}`);
+// Core encoder. Public encodeFrame validates first; encodeFrameInner is
+// used by recursion for nested frames (which are validated by the outer
+// validation pass).
+function encodeFrameInner(spec: LanguageSpec, frame: FilledFrame): string {
+  const frameSpec = FRAMES[frame.predicate];
+  if (!frameSpec) throw new Error(`Unknown frame: ${frame.predicate}`);
 
-  // Bucket roles by grammatical function and build their words.
+  const subjectNumber = subjectNumberOf(spec, frame);
+
+  // Build a word per role using the frame's grammatical assignments.
   const subjectWords: string[] = [];
   const objectWords: string[] = [];
   const obliqueWords: string[] = [];
-  for (const role of frame.roles) {
-    const filler = filled.roles[role.name];
-    if (filler === undefined) continue; // validateFilledFrame already caught
-    const word = wordForRole(spec, role, filler);
+  for (const role of frameSpec.roles) {
+    const filler = frame.roles[role.name];
+    if (filler === undefined) continue;
+    const word = renderRoleFiller(spec, role, filler);
     switch (role.grammar) {
-      case "subject":
-        subjectWords.push(word);
-        break;
-      case "object":
-        objectWords.push(word);
-        break;
-      case "oblique":
-        obliqueWords.push(word);
-        break;
+      case "subject": subjectWords.push(word); break;
+      case "object":  objectWords.push(word);  break;
+      case "oblique": obliqueWords.push(word); break;
     }
   }
 
-  // Verb gets the mood marker.
-  const verbStem = verbForFrame(spec, frame.id);
-  const moodTag = moodTagOf(filled.mood);
-  const verbWord = applyAffix(verbStem, spec.morphology.mood[moodTag]);
+  const verbWord = wordForVerb(spec, frame, subjectNumber);
 
-  const base = orderSOV(
-    spec.syntax.wordOrder,
-    subjectWords,
-    objectWords,
-    verbWord,
-  );
-  const withObliques = insertObliques(
-    base,
-    verbWord,
-    obliqueWords,
-    spec.syntax.obliquePosition,
-  );
+  // Use the canonical template, adapted to this language's word order.
+  const template = canonicalTemplate(frame.predicate);
+  const ordered = adaptToWordOrder(template, spec.syntax.wordOrder);
 
-  return withObliques.join(" ");
+  const slotsByKind: Record<"subject" | "verb" | "object" | "oblique", string[]> = {
+    subject: subjectWords,
+    verb: [verbWord],
+    object: objectWords,
+    oblique: obliqueWords,
+  };
+  // Walk the ordered template; any oblique slots not pinned by the
+  // template will be placed by placeObliquesAroundVerb afterwards.
+  const usedObliquesInTemplate = ordered.some((s) => s.kind === "oblique");
+  const base: string[] = [];
+  for (const slot of ordered) {
+    base.push(...(slotsByKind[slot.kind] ?? []));
+  }
+  let words = base;
+  if (!usedObliquesInTemplate) {
+    words = placeObliquesAroundVerb(
+      base,
+      verbWord,
+      obliqueWords,
+      spec.syntax.obliquePosition,
+    );
+  }
+
+  // Particle-style negation (when not affix). The negation form goes
+  // pre-verb or post-verb as a free-standing word.
+  if (frame.negated && spec.syntax.negationStrategy !== "affix") {
+    const particle = spec.morphology.negation.form;
+    if (particle !== "") {
+      const verbIdx = words.indexOf(verbWord);
+      const at = spec.syntax.negationStrategy === "pre-verb" ? verbIdx : verbIdx + 1;
+      words = [...words.slice(0, at), particle, ...words.slice(at)];
+    }
+  }
+
+  // Sentence-level mood particles (used in "simple" difficulty languages).
+  // Q goes around interrogatives, IMP around imperatives. Position is
+  // initial or final. Particle marks STACK with affix marks (a language
+  // could in principle do both); in practice, simple-mode languages have
+  // empty mood affixes so only the particle is visible.
+  if (spec.particles) {
+    const apply = (p: { form: string; position: "initial" | "final" }) => {
+      if (p.form === "") return;
+      words = p.position === "initial" ? [p.form, ...words] : [...words, p.form];
+    };
+    if (frame.mood === "interrogative") apply(spec.particles.Q);
+    else if (frame.mood === "imperative") apply(spec.particles.IMP);
+  }
+
+  return words.join(" ");
 }
+
+export function encodeFrame(spec: LanguageSpec, filled: FilledFrame): string {
+  validateFilledFrame(filled);
+  return encodeFrameInner(spec, filled);
+}
+
+// Re-export so callers can still import Mood etc. from a single module.
+export type { Mood };

@@ -1,14 +1,22 @@
 import { z } from "zod";
 
-// The 6 locked frames. Frame inventory is language-independent —
-// the same FrameSpec drives every generated language.
+// Frame inventory is language-independent — the same FrameSpec set drives
+// every generated language. v2: 10 frames with thematic role labels and a
+// richer semantic-type taxonomy. The original 6 game frames are retained
+// verbatim; 4 new ones added (SEE, SAY, MAKE, EAT). SAY supports nesting
+// via its `content` role.
 
-export const RoleType = z.enum(["ANIMATE", "ITEM", "LOCATION"]);
+export const RoleType = z.enum([
+  "ANIMATE",
+  "ITEM",
+  "LOCATION",
+  "ABSTRACT",  // properties, qualities (NEW)
+  "EVENT",     // a nested frame instance (NEW)
+]);
 export type RoleType = z.infer<typeof RoleType>;
 
 // Grammatical role assigned to each frame argument. Drives case marking.
 // Under nom-acc alignment (v1): subject->NOM, object->ACC, oblique->DAT.
-// When we add ergative alignment, this mapping changes; the role labels stay.
 export const GrammaticalRole = z.enum(["subject", "object", "oblique"]);
 export type GrammaticalRole = z.infer<typeof GrammaticalRole>;
 
@@ -18,6 +26,10 @@ export const RoleSpec = z.object({
   // "primary" type, used to pick the wh-word when this role is wildcarded.
   types: z.array(RoleType).min(1),
   grammar: GrammaticalRole,
+  // For roles that may be filled by a nested frame (e.g. SAY.content).
+  // The decoder won't try to reach inside; the encoder serialises the
+  // nested frame inline using its canonical template.
+  allowsNested: z.boolean().optional(),
 });
 export type RoleSpec = z.infer<typeof RoleSpec>;
 
@@ -28,14 +40,17 @@ export const FrameSpec = z.object({
 });
 export type FrameSpec = z.infer<typeof FrameSpec>;
 
+// Thematic role names used across the inventory. Kept as informal labels —
+// templates key off the label rather than its formal type.
+
 export const FRAMES: Record<string, FrameSpec> = {
   GIVE: {
     id: "GIVE",
     category: "action",
     roles: [
-      { name: "agent", types: ["ANIMATE"], grammar: "subject" },
+      { name: "agent",     types: ["ANIMATE"], grammar: "subject" },
       { name: "recipient", types: ["ANIMATE"], grammar: "oblique" },
-      { name: "theme", types: ["ITEM"], grammar: "object" },
+      { name: "theme",     types: ["ITEM"],    grammar: "object" },
     ],
   },
   TAKE: {
@@ -43,14 +58,14 @@ export const FRAMES: Record<string, FrameSpec> = {
     category: "action",
     roles: [
       { name: "agent", types: ["ANIMATE"], grammar: "subject" },
-      { name: "theme", types: ["ITEM"], grammar: "object" },
+      { name: "theme", types: ["ITEM"],    grammar: "object" },
     ],
   },
   MOVE: {
     id: "MOVE",
     category: "action",
     roles: [
-      { name: "agent", types: ["ANIMATE"], grammar: "subject" },
+      { name: "agent",       types: ["ANIMATE"],  grammar: "subject" },
       { name: "destination", types: ["LOCATION"], grammar: "oblique" },
     ],
   },
@@ -58,8 +73,8 @@ export const FRAMES: Record<string, FrameSpec> = {
     id: "WANT",
     category: "state",
     roles: [
-      { name: "wanter", types: ["ANIMATE"], grammar: "subject" },
-      { name: "desired", types: ["ITEM"], grammar: "object" },
+      { name: "wanter",  types: ["ANIMATE"], grammar: "subject" },
+      { name: "desired", types: ["ITEM"],    grammar: "object" },
     ],
   },
   BE_AT: {
@@ -69,7 +84,7 @@ export const FRAMES: Record<string, FrameSpec> = {
       // Items are the common case for this game (the player asks
       // "where is the flint?"); animates are rarer but supported.
       { name: "figure", types: ["ITEM", "ANIMATE"], grammar: "subject" },
-      { name: "ground", types: ["LOCATION"], grammar: "oblique" },
+      { name: "ground", types: ["LOCATION"],        grammar: "oblique" },
     ],
   },
   HAVE: {
@@ -77,38 +92,141 @@ export const FRAMES: Record<string, FrameSpec> = {
     category: "state",
     roles: [
       { name: "owner", types: ["ANIMATE"], grammar: "subject" },
-      { name: "theme", types: ["ITEM"], grammar: "object" },
+      { name: "theme", types: ["ITEM"],    grammar: "object" },
+    ],
+  },
+  // ─── New frames ─────────────────────────────────────────────
+  SEE: {
+    id: "SEE",
+    category: "state",
+    roles: [
+      { name: "viewer", types: ["ANIMATE"],                     grammar: "subject" },
+      { name: "target", types: ["ITEM", "ANIMATE", "LOCATION"], grammar: "object" },
+    ],
+  },
+  SAY: {
+    // SAY supports a nested frame in `content`. Without nesting the content
+    // role takes an ITEM ("the smith says the flint" — referring to it).
+    id: "SAY",
+    category: "action",
+    roles: [
+      { name: "speaker",   types: ["ANIMATE"],       grammar: "subject" },
+      { name: "recipient", types: ["ANIMATE"],       grammar: "oblique" },
+      { name: "content",   types: ["EVENT", "ITEM"], grammar: "object", allowsNested: true },
+    ],
+  },
+  MAKE: {
+    id: "MAKE",
+    category: "action",
+    roles: [
+      { name: "agent",   types: ["ANIMATE"], grammar: "subject" },
+      { name: "patient", types: ["ITEM"],    grammar: "object" },
+      { name: "source",  types: ["ITEM"],    grammar: "oblique" },
+    ],
+  },
+  EAT: {
+    id: "EAT",
+    category: "action",
+    roles: [
+      { name: "agent",   types: ["ANIMATE"], grammar: "subject" },
+      { name: "patient", types: ["ITEM"],    grammar: "object" },
     ],
   },
 };
 
-// A reference to an entity in the game world OR the wildcard "?" used
-// in interrogative mood to mark the role being asked about.
+// ─── Filled frames ──────────────────────────────────────────────
+
+export const Number_ = z.enum(["sg", "pl"]);
+export type Number_ = z.infer<typeof Number_>;
+
+export const Tense = z.enum(["past", "present", "future"]);
+export type Tense = z.infer<typeof Tense>;
+
+// Entity reference, optionally carrying number. Default (when omitted)
+// is singular. Adding number is non-breaking for older fixtures.
 export const EntityRef = z.object({
   type: RoleType,
-  // conceptId points into LanguageSpec.lexicon — the *type* of entity
-  // (e.g. "FLINT", "NPC_SMITH"). Specific instances are the game's job.
   conceptId: z.string(),
+  number: Number_.optional(),
 });
 export type EntityRef = z.infer<typeof EntityRef>;
-
-export const RoleFiller = z.union([EntityRef, z.literal("?")]);
-export type RoleFiller = z.infer<typeof RoleFiller>;
 
 export const Mood = z.enum(["declarative", "interrogative", "imperative"]);
 export type Mood = z.infer<typeof Mood>;
 
-export const FilledFrame = z.object({
-  predicate: z.string(),
-  mood: Mood,
-  roles: z.record(z.string(), RoleFiller),
-});
-export type FilledFrame = z.infer<typeof FilledFrame>;
+// Forward-declared types so RoleFiller and FilledFrame can reference each
+// other recursively.
+export type FilledFrame = {
+  predicate: string;
+  mood: Mood;
+  roles: Record<string, RoleFiller>;
+  // `| undefined` is required so the Zod-inferred shape (which uses
+  // `Tense.optional()` ↔ `Tense | undefined`) is assignable to this
+  // type under `exactOptionalPropertyTypes: true`.
+  tense?: Tense | undefined;
+  negated?: boolean | undefined;
+};
+
+export type RoleFiller =
+  | EntityRef
+  | "?"
+  | { kind: "frame"; frame: FilledFrame };
+
+export const FilledFrame: z.ZodType<FilledFrame> = z.lazy(() =>
+  z.object({
+    predicate: z.string(),
+    mood: Mood,
+    roles: z.record(z.string(), RoleFiller),
+    tense: Tense.optional(),
+    negated: z.boolean().optional(),
+  }),
+);
+
+export const RoleFiller: z.ZodType<RoleFiller> = z.lazy(() =>
+  z.union([
+    EntityRef,
+    z.literal("?"),
+    z.object({ kind: z.literal("frame"), frame: FilledFrame }),
+  ]),
+);
+
+// Helpers to discriminate filler kinds.
+export function isWildcard(f: RoleFiller): f is "?" {
+  return f === "?";
+}
+export function isNestedFrame(
+  f: RoleFiller,
+): f is { kind: "frame"; frame: FilledFrame } {
+  return typeof f === "object" && f !== null && "kind" in f && f.kind === "frame";
+}
+export function isEntityRef(f: RoleFiller): f is EntityRef {
+  return typeof f === "object" && f !== null && "conceptId" in f && !("kind" in f);
+}
+
+// Convenience constructor for an EntityRef.
+export function ref(
+  type: RoleType,
+  conceptId: string,
+  number?: Number_,
+): EntityRef {
+  return number ? { type, conceptId, number } : { type, conceptId };
+}
+
+// Read the effective number of an entity reference (default sg).
+export function numberOf(r: EntityRef): Number_ {
+  return r.number ?? "sg";
+}
 
 // Validate that a FilledFrame is well-formed against its frame definition:
-// every required role is filled, fillers respect type restrictions, and
-// at most one role is the "?" wildcard (and only in interrogative mood).
-export function validateFilledFrame(filled: FilledFrame): void {
+// every required role is filled, fillers respect type restrictions, at most
+// one role is the "?" wildcard (and only in interrogative mood), nested
+// frames are only used in roles that allow them.
+const MAX_NESTING_DEPTH = 3;
+
+export function validateFilledFrame(filled: FilledFrame, depth = 1): void {
+  if (depth > MAX_NESTING_DEPTH) {
+    throw new Error(`Frame nesting exceeds maximum depth of ${MAX_NESTING_DEPTH}`);
+  }
   const frame = FRAMES[filled.predicate];
   if (!frame) throw new Error(`Unknown frame: ${filled.predicate}`);
 
@@ -125,10 +243,20 @@ export function validateFilledFrame(filled: FilledFrame): void {
     if (filler === undefined) {
       throw new Error(`Frame ${frame.id} missing role "${role.name}"`);
     }
-    if (filler === "?") {
+    if (isWildcard(filler)) {
       wildcards++;
       continue;
     }
+    if (isNestedFrame(filler)) {
+      if (!role.allowsNested) {
+        throw new Error(
+          `Role "${role.name}" of frame ${frame.id} does not accept nested frames`,
+        );
+      }
+      validateFilledFrame(filler.frame, depth + 1);
+      continue;
+    }
+    // EntityRef
     if (!role.types.includes(filler.type)) {
       throw new Error(
         `Frame ${frame.id} role "${role.name}" expects ${role.types.join("|")}, got ${filler.type}`,

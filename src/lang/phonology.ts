@@ -8,6 +8,10 @@
 import { Rng, pick, weightedPick } from "./prng.js";
 import { z } from "zod";
 
+// Mirrored locally to avoid a phonology ↔ language-spec import cycle.
+// Kept structurally identical to language-spec.ts's `Difficulty`.
+type Difficulty = "full" | "simple";
+
 // ─── Featural enums ─────────────────────────────────────────────
 
 export const Place = z.enum([
@@ -137,6 +141,13 @@ const PHONOTACTIC_POOL: PhonotacticRule[] = [
   "no-cluster-stop-stop",
 ];
 
+// "Simple" mode uses a clean canonical inventory: the cross-linguistically
+// most common consonants (no fricatives like z/v, no schwa, no front-rounded
+// y), strict CV syllables, no harmony, no tones. The result reads like a
+// stereotypical "easy" conlang — open syllables, predictable sounds.
+const SIMPLE_CONSONANT_SYMBOLS = new Set(["p", "t", "k", "m", "n", "s", "l"]);
+const SIMPLE_VOWEL_SYMBOLS = new Set(["a", "e", "i", "o", "u"]);
+
 // Sample a random subset of the consonant/vowel pools, weighted by
 // frequency. Larger languages get more phonemes; smaller get fewer.
 function sampleConsonants(rng: Rng): ConsonantPhoneme[] {
@@ -158,6 +169,14 @@ function sampleVowels(rng: Rng): VowelPhoneme[] {
   return [...core, ...extras];
 }
 
+function simpleConsonants(): ConsonantPhoneme[] {
+  return CONSONANT_POOL.filter((c) => SIMPLE_CONSONANT_SYMBOLS.has(c.symbol));
+}
+
+function simpleVowels(): VowelPhoneme[] {
+  return VOWEL_POOL.filter((v) => SIMPLE_VOWEL_SYMBOLS.has(v.symbol));
+}
+
 function maybeVowelHarmony(rng: Rng, vowels: VowelPhoneme[]): VowelHarmony {
   // 25% chance of vowel harmony.
   if (rng() > 0.25) return false;
@@ -175,7 +194,23 @@ function maybeVowelHarmony(rng: Rng, vowels: VowelPhoneme[]): VowelHarmony {
   }
 }
 
-export function generatePhonology(rng: Rng): Phonology {
+export function generatePhonology(
+  rng: Rng,
+  difficulty: Difficulty = "full",
+): Phonology {
+  if (difficulty === "simple") {
+    // Strict CV, canonical 7-consonant / 5-vowel inventory, no harmony,
+    // no tones. `no-geminates` keeps obvious "tata"-style stems out without
+    // constraining draws further.
+    return {
+      consonants: simpleConsonants(),
+      vowels: simpleVowels(),
+      syllableTemplate: "CV",
+      phonotactics: ["no-geminates"],
+      vowelHarmony: false,
+      tones: 0,
+    };
+  }
   const consonants = sampleConsonants(rng);
   const vowels = sampleVowels(rng);
   const syllableTemplate = pick(SYLLABLE_TEMPLATES, rng);
@@ -316,10 +351,19 @@ export function uniqueWords(
   return [...seen];
 }
 
-// Generate one short affix form (1 vowel, 1 consonant, or CV).
-export function shortAffix(rng: Rng, phon: Phonology): string {
+// Generate one short affix form. In "full" difficulty this can be a bare
+// vowel, a bare consonant, or CV. In "simple" difficulty the form is always
+// CV — particles read like cleanly-pronounceable little words.
+export function shortAffix(
+  rng: Rng,
+  phon: Phonology,
+  difficulty: Difficulty = "full",
+): string {
   const cs = phon.consonants.map((c) => ({ value: c.symbol, weight: c.frequency }));
   const vs = phon.vowels.map((v) => ({ value: v.symbol, weight: v.frequency }));
+  if (difficulty === "simple") {
+    return weightedPick(cs, rng) + weightedPick(vs, rng);
+  }
   const shape = Math.floor(rng() * 3);
   if (shape === 0) return weightedPick(vs, rng);
   if (shape === 1) return weightedPick(cs, rng);
