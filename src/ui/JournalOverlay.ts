@@ -1,22 +1,35 @@
 import { setFlag } from '../state/dialogueFlags';
+import { GameRegistry } from '../state/GameRegistry';
 
 const PREDECESSOR_NAME = 'Maren';
 
 // Journal page left in the predecessor's hut. Renders in English (player's
 // own language — they're reading words written by another castaway). Sets
 // has_visited_hut, which unlocks {{predecessorName}}-flavoured dialogue
-// branches across all NPCs. The four glossed Telopa words at the top of
-// the page are also the seedWords (REQUIREMENTS.md §5.1) — when the diary
-// surface lands, they auto-populate as pre-filled entries.
-const PAGES: string[] = [
-  `the bread is the wrong shape here. salt in everything.\n\nfour winters now. words i think i have —\n\n  welo   good (?)\n  tara   bad\n  pala   home / house — the same word, of course\n  kowe   they say it when they pass things across\n\nthe others are kind in pieces.\nshe's the one who keeps trying. hala.\ni find her at the lighthouse most evenings now.\n\nthink i'll walk up there tonight.\n\n— ${PREDECESSOR_NAME}`,
-];
+// branches across all NPCs. The four glossed words at the top are pulled
+// live from GameRegistry.language — the surface-language lexicon is
+// procedurally generated per seed, so any hard-coded stems here would
+// disagree with what NPCs actually say.
+const buildPage = (): string => {
+  const lex = GameRegistry.language.lexicon;
+  // Verb stems are keyed by frame id; noun/abstract stems by concept id.
+  const stems = [
+    { word: lex.GREET?.stem ?? '?', gloss: 'they say it arriving and parting both' },
+    { word: lex.GOOD?.stem  ?? '?', gloss: 'good (?) — what they ask after, when they meet you' },
+    { word: lex.GIVE?.stem  ?? '?', gloss: 'they say it when they pass things across' },
+    { word: lex.HUT?.stem   ?? '?', gloss: "this — the four walls i'm writing inside of" },
+  ];
+  const width = Math.max(...stems.map(s => s.word.length)) + 3;
+  const lines = stems.map(s => `  ${s.word.padEnd(width)}${s.gloss}`).join('\n');
+  return `the bread is the wrong shape here. salt in everything.\n\nfour winters now. words i think i have —\n\n${lines}\n\nthe others are kind in pieces.\nshe's the one who keeps trying. hala.\ni find her at the lighthouse most evenings now.\n\nthink i'll walk up there tonight.\n\n— ${PREDECESSOR_NAME}`;
+};
 
 export class JournalOverlay {
   private root: HTMLDivElement;
   private pageEl: HTMLDivElement;
   private hintEl: HTMLDivElement;
   private currentPage = 0;
+  private pages: string[] = [];
   private isActive = false;
   private keyHandler: (ev: KeyboardEvent) => void;
   private clickHandler: (ev: MouseEvent) => void;
@@ -82,6 +95,7 @@ export class JournalOverlay {
   open() {
     this.isActive = true;
     this.currentPage = 0;
+    this.pages = [buildPage()];
     this.root.style.display = 'flex';
     this.renderPage();
     window.addEventListener('keydown', this.keyHandler, true);
@@ -89,15 +103,15 @@ export class JournalOverlay {
   }
 
   private renderPage() {
-    this.pageEl.textContent = PAGES[this.currentPage] ?? '';
-    const last = this.currentPage >= PAGES.length - 1;
+    this.pageEl.textContent = this.pages[this.currentPage] ?? '';
+    const last = this.currentPage >= this.pages.length - 1;
     this.hintEl.textContent = last
       ? 'click or press any key to close'
-      : `click or press any key for next page  (${this.currentPage + 1} / ${PAGES.length})`;
+      : `click or press any key for next page  (${this.currentPage + 1} / ${this.pages.length})`;
   }
 
   private advance() {
-    if (this.currentPage >= PAGES.length - 1) {
+    if (this.currentPage >= this.pages.length - 1) {
       this.close();
       return;
     }
