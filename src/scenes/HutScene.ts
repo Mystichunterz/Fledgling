@@ -12,7 +12,7 @@ import {
 import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
-import { drawDevGrid, drawTriggerZones, drawCornerMarkers } from '../engine/worldDecor';
+import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 
 export const HUT_WIDTH = 480;
 export const HUT_HEIGHT = 270;
@@ -92,9 +92,9 @@ export class HutScene extends Phaser.Scene {
 
     this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
 
+    drawBorderFog(this, HUT_WIDTH, HUT_HEIGHT, ZONES);
     if (isDev()) {
       drawDevGrid(this, HUT_WIDTH, HUT_HEIGHT);
-      drawTriggerZones(this, HUT_WIDTH, HUT_HEIGHT, ZONES);
       drawCornerMarkers(this, HUT_WIDTH, HUT_HEIGHT);
     }
 

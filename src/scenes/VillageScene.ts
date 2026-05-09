@@ -12,7 +12,7 @@ import {
 import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
-import { drawDevGrid, drawTriggerZones, drawCornerMarkers } from '../engine/worldDecor';
+import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 
 export const VILLAGE_WIDTH = 1280;
 export const VILLAGE_HEIGHT = 720;
@@ -52,9 +52,9 @@ export class VillageScene extends Phaser.Scene {
     this.buildGround();
     this.buildLandmarks();
 
+    drawBorderFog(this, VILLAGE_WIDTH, VILLAGE_HEIGHT, ZONES);
     if (isDev()) {
       drawDevGrid(this, VILLAGE_WIDTH, VILLAGE_HEIGHT);
-      drawTriggerZones(this, VILLAGE_WIDTH, VILLAGE_HEIGHT, ZONES);
       drawCornerMarkers(this, VILLAGE_WIDTH, VILLAGE_HEIGHT);
     }
 
@@ -84,11 +84,30 @@ export class VillageScene extends Phaser.Scene {
   private buildGround() {
     const cx = VILLAGE_WIDTH / 2;
     const cy = VILLAGE_HEIGHT / 2;
-    this.add.rectangle(cx, cy, VILLAGE_WIDTH - 32, VILLAGE_HEIGHT - 32, 0xd4b88a)
-      .setStrokeStyle(1, 0x8a6f4f)
+    // Camera bg is sea blue — visible at the perimeter outside the island.
+    // Sand "island" — inset 32 px from the world edges so sea shows around it.
+    this.add.rectangle(cx, cy, VILLAGE_WIDTH - 64, VILLAGE_HEIGHT - 64, 0xd4b88a)
       .setDepth(Depths.BG_GROUND);
-    this.add.rectangle(cx, cy, VILLAGE_WIDTH - 96, VILLAGE_HEIGHT - 96, 0x6a8e54)
+    // Grass interior — the village proper.
+    this.add.rectangle(cx, cy, VILLAGE_WIDTH - 128, VILLAGE_HEIGHT - 128, 0x6a8e54)
       .setDepth(Depths.BG_GROUND + 10);
+
+    // Land bridges — narrow sand strips spanning the sea moat to the world
+    // edge at each transition point. The fog overlay sits over the bridge
+    // tip, so the player walks on visible sand into mist.
+    const BRIDGE = 88;
+    // North bridge (to Crash Site)
+    this.add.rectangle(cx - BRIDGE / 2, 0, BRIDGE, 32, 0xd4b88a)
+      .setOrigin(0, 0)
+      .setDepth(Depths.BG_GROUND);
+    // West bridge (to Hut)
+    this.add.rectangle(0, cy - BRIDGE / 2, 32, BRIDGE, 0xd4b88a)
+      .setOrigin(0, 0)
+      .setDepth(Depths.BG_GROUND);
+    // South bridge (to Lighthouse)
+    this.add.rectangle(cx - BRIDGE / 2, VILLAGE_HEIGHT - 32, BRIDGE, 32, 0xd4b88a)
+      .setOrigin(0, 0)
+      .setDepth(Depths.BG_GROUND);
   }
 
   private buildLandmarks() {
@@ -107,13 +126,15 @@ export class VillageScene extends Phaser.Scene {
         .setDepth(Depths.BG_DECOR + Math.round(l.y));
     }
 
-    this.add.rectangle(640, 32, 64, 12, 0xb8a070)
+    // Roads — sit on top of the land bridges, run from the world edge into
+    // the village interior. Player walks the path through mist to teleport.
+    this.add.rectangle(640, 0, 16, 80, 0xb8a070)
       .setOrigin(0.5, 0)
       .setDepth(Depths.BG_DECOR);
-    this.add.rectangle(32, 360, 12, 64, 0xb8a070)
+    this.add.rectangle(0, 360, 80, 16, 0xb8a070)
       .setOrigin(0, 0.5)
       .setDepth(Depths.BG_DECOR);
-    this.add.rectangle(640, VILLAGE_HEIGHT - 32, 64, 12, 0xb8a070)
+    this.add.rectangle(640, VILLAGE_HEIGHT, 16, 80, 0xb8a070)
       .setOrigin(0.5, 1)
       .setDepth(Depths.BG_DECOR);
   }

@@ -20,26 +20,44 @@ export function drawDevGrid(
   }
 }
 
-export function drawTriggerZones(
+// Soft fog at the world edges that lead to other scenes — shore mist /
+// path-end haze, not a debug strip. Visible to the player, not just devs.
+export function drawBorderFog(
   scene: Phaser.Scene,
   width: number,
   height: number,
   zones: ReadonlyArray<TransitionZone>,
-  thickness = 16,
+  thickness = 32,
 ): void {
+  const FOG = 0xffffff;
+  const A_EDGE = 0.45;
+  const A_INNER = 0;
+
   for (const zone of zones) {
+    const g = scene.add.graphics();
+    g.setDepth(Depths.FX);
     let x = 0, y = 0, w = 0, h = 0;
+    let aTL = 0, aTR = 0, aBL = 0, aBR = 0;
     switch (zone.edge) {
-      case 'north': x = 0;             y = 0;             w = width;     h = thickness; break;
-      case 'south': x = 0;             y = height - thickness; w = width;     h = thickness; break;
-      case 'west':  x = 0;             y = 0;             w = thickness; h = height;     break;
-      case 'east':  x = width - thickness; y = 0;             w = thickness; h = height;     break;
+      case 'north':
+        x = 0; y = 0; w = width; h = thickness;
+        aTL = A_EDGE; aTR = A_EDGE; aBL = A_INNER; aBR = A_INNER;
+        break;
+      case 'south':
+        x = 0; y = height - thickness; w = width; h = thickness;
+        aTL = A_INNER; aTR = A_INNER; aBL = A_EDGE; aBR = A_EDGE;
+        break;
+      case 'west':
+        x = 0; y = 0; w = thickness; h = height;
+        aTL = A_EDGE; aTR = A_INNER; aBL = A_EDGE; aBR = A_INNER;
+        break;
+      case 'east':
+        x = width - thickness; y = 0; w = thickness; h = height;
+        aTL = A_INNER; aTR = A_EDGE; aBL = A_INNER; aBR = A_EDGE;
+        break;
     }
-    scene.add.rectangle(x, y, w, h, 0xff00ff, 0.25)
-      .setOrigin(0, 0)
-      .setDepth(Depths.FX);
-    scene.add.rectangle(x + w / 2, y + h / 2, 4, 4, 0xff00ff, 0.9)
-      .setDepth(Depths.FX + 1);
+    g.fillGradientStyle(FOG, FOG, FOG, FOG, aTL, aTR, aBL, aBR);
+    g.fillRect(x, y, w, h);
   }
 }
 

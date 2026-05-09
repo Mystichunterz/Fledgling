@@ -12,7 +12,7 @@ import {
 import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
-import { drawDevGrid, drawTriggerZones, drawCornerMarkers } from '../engine/worldDecor';
+import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 
 export const LIGHTHOUSE_WIDTH = 640;
 export const LIGHTHOUSE_HEIGHT = 360;
@@ -84,9 +84,9 @@ export class LighthouseScene extends Phaser.Scene {
 
     this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
 
+    drawBorderFog(this, LIGHTHOUSE_WIDTH, LIGHTHOUSE_HEIGHT, ZONES);
     if (isDev()) {
       drawDevGrid(this, LIGHTHOUSE_WIDTH, LIGHTHOUSE_HEIGHT);
-      drawTriggerZones(this, LIGHTHOUSE_WIDTH, LIGHTHOUSE_HEIGHT, ZONES);
       drawCornerMarkers(this, LIGHTHOUSE_WIDTH, LIGHTHOUSE_HEIGHT);
     }
 
