@@ -16,6 +16,7 @@ import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDe
 import { paintFill } from '../engine/terrainTiles';
 import { attachProximityHighlight } from '../engine/highlight';
 import { LighthouseMenu } from '../ui/LighthouseMenu';
+import { snappedFollow } from '../engine/camera';
 
 let sharedMenu: LighthouseMenu | null = null;
 const ensureMenu = () => {
@@ -107,7 +108,7 @@ export class LighthouseScene extends Phaser.Scene {
       },
     );
 
-    this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
+    snappedFollow(this, this.player.sprite);
 
     drawBorderFog(this, LIGHTHOUSE_WIDTH, LIGHTHOUSE_HEIGHT, ZONES);
     if (isDev()) {

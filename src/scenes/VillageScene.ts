@@ -14,6 +14,7 @@ import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 import { paintFill, scatterTrees } from '../engine/terrainTiles';
+import { snappedFollow } from '../engine/camera';
 
 export const VILLAGE_WIDTH = 1280;
 export const VILLAGE_HEIGHT = 720;
@@ -71,7 +72,7 @@ export class VillageScene extends Phaser.Scene {
       },
     );
 
-    this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
+    snappedFollow(this, this.player.sprite);
     fadeInOnEnter(this);
   }
 
