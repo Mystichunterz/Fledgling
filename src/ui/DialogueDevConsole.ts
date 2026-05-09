@@ -205,6 +205,7 @@ export class DialogueDevConsole {
 
     this.keyHandler = (ev: KeyboardEvent) => {
       if (ev.key === '`' || ev.key === '~') {
+        if (!this.dialogueOpen) return;
         const target = ev.target as HTMLElement | null;
         if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
         ev.stopPropagation();
