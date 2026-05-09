@@ -3,33 +3,48 @@ import { gameConfig } from './config';
 import { _debugTransitionState, _debugResetTransition } from './engine/transitions';
 import { GameRegistry } from './state/GameRegistry';
 import { SceneKeys } from './assets/keys';
-import { spawnNpcsForScene } from './sim/spawnNpcs';
-import type { NpcSceneKey } from './sim/npcRoster';
+import { spawnNpcsForScene, spawnNpc } from './sim/spawnNpcs';
+import { npcById, type NpcSceneKey } from './sim/npcRoster';
 import { installHandoverListener } from './state/handovers';
 import { initDiary } from './sim/diary';
 import { DiaryOverlay } from './ui/DiaryOverlay';
-import { initFlags } from './state/dialogueFlags';
+import { initFlags, isFlagSet } from './state/dialogueFlags';
+import { CrashPrologue, hasSeenPrologue } from './scenes/CrashPrologue';
 
 initFlags();
 installHandoverListener();
 initDiary();
 new DiaryOverlay();
+const prologue = new CrashPrologue();
 
 const game = new Phaser.Game(gameConfig);
 
-// Spawn NPCs whenever a world scene's create() runs. Keeping the integration
-// here means scene files don't need to know about the roster.
+// Spawn world-NPCs whenever a scene's create() runs. The crash-site case is
+// special: Pemi waits for the prologue to finish on first visit and is
+// suppressed entirely after met_pemi is set.
 const NPC_SCENE_BINDINGS: Array<[string, NpcSceneKey]> = [
   [SceneKeys.CRASH_SITE, 'crash_site'],
   [SceneKeys.VILLAGE, 'village'],
   [SceneKeys.HUT, 'hut'],
   [SceneKeys.LIGHTHOUSE, 'lighthouse'],
 ];
+
+const handlePemiAtBeach = (scene: Phaser.Scene) => {
+  if (isFlagSet('met_pemi')) return;
+  const pemi = npcById('pemi');
+  const dropPemi = () => spawnNpc(scene, pemi);
+  if (!hasSeenPrologue()) prologue.start(dropPemi);
+  else dropPemi();
+};
+
 game.events.once('ready', () => {
   for (const [sceneKey, npcSceneKey] of NPC_SCENE_BINDINGS) {
     const scene = game.scene.getScene(sceneKey);
     if (!scene) continue;
-    scene.events.on('create', () => spawnNpcsForScene(scene, npcSceneKey));
+    scene.events.on('create', () => {
+      spawnNpcsForScene(scene, npcSceneKey);
+      if (sceneKey === SceneKeys.CRASH_SITE) handlePemiAtBeach(scene);
+    });
   }
 });
 
