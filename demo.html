@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fledgling — dialogue UI demo</title>
+    <style>
+      html, body {
+        margin: 0; padding: 0; background: #0a0a14;
+        color: #eee; font-family: ui-monospace, monospace;
+        height: 100%; overflow: hidden;
+      }
+      #demo {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 100vh;
+      }
+      #demo canvas {
+        image-rendering: pixelated; image-rendering: crisp-edges;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="demo"></div>
+    <script type="module" src="/src/demoMain.ts"></script>
+  </body>
+</html>
