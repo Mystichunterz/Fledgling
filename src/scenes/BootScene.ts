@@ -65,6 +65,17 @@ export class BootScene extends Phaser.Scene {
 
     this.scene.run(SceneKeys.PLAYER_HUD);
     if (isDev()) this.scene.run(SceneKeys.DEBUG);
-    this.scene.start(SceneKeys.VILLAGE);
+
+    // Dev "New Game" reset stashes a one-shot flag so the next boot lands
+    // at the crash site and the prologue plays. Consume it here so a
+    // subsequent normal refresh returns to the default village start.
+    let startScene: string = SceneKeys.VILLAGE;
+    try {
+      if (sessionStorage.getItem('fledgling:newgame') === '1') {
+        sessionStorage.removeItem('fledgling:newgame');
+        startScene = SceneKeys.CRASH_SITE;
+      }
+    } catch { /* ignore */ }
+    this.scene.start(startScene);
   }
 }

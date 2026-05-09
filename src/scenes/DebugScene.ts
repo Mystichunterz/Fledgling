@@ -191,12 +191,16 @@ export class DebugScene extends Phaser.Scene {
   }
 
   private resetEverything() {
-    const ok = window.confirm('Reset to a fresh game? This clears items, dialogue flags, diary entries, and the prologue marker, then reloads.');
+    const ok = window.confirm('Reset to a fresh game? This clears items, dialogue flags, diary entries, and the prologue marker, then reloads at the crash site.');
     if (!ok) return;
     clearItems();
     clearFlags();
     clearDiary();
     resetPrologue();
+    // Boot normally drops the player into the village. After a hard reset
+    // we want the prologue to play, so flag the next boot to land at the
+    // crash site instead. BootScene reads and clears this on startup.
+    try { sessionStorage.setItem('fledgling:newgame', '1'); } catch { /* ignore */ }
     window.location.reload();
   }
 
