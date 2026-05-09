@@ -1,7 +1,12 @@
 import { decodeText, ParseError } from "../lang/decoder.js";
 import { encodeFrame } from "../lang/encoder.js";
 import { FilledFrame } from "../lang/frames.js";
-import { randomLanguage } from "../lang/random-language.js";
+import { Difficulty } from "../lang/language-spec.js";
+import {
+  customLanguageNames,
+  randomLanguage,
+  randomSeedString,
+} from "../lang/random-language.js";
 import {
   Decision,
   NPC,
@@ -13,8 +18,11 @@ import {
 } from "./village.js";
 
 // Generated language used for this demo. Deterministic given (seed,
-// difficulty) — see src/lang/random-language.ts.
-const LANG = randomLanguage("banana", "simple");
+// difficulty) — see src/lang/random-language.ts. Reassigned in place by
+// setLanguage() so the rest of the module always sees the current spec.
+let currentSeed = "banana";
+let currentDifficulty: Difficulty = "simple";
+let LANG = randomLanguage(currentSeed, currentDifficulty);
 const MAX_STREAM_TICKS = 60; // hard cap on rendered ticks; older ones get pruned
 
 const $ = <T extends HTMLElement>(sel: string): T => {
@@ -63,6 +71,11 @@ const els = {
   cmdInput: $("#cmd-input") as HTMLInputElement,
   cmdTarget: $("#cmd-target") as HTMLSelectElement,
   cmdError: $("#cmd-error") as HTMLDivElement,
+  langForm: $("#lang-form") as HTMLFormElement,
+  langSeed: $("#lang-seed") as HTMLInputElement,
+  langDifficulty: $("#lang-difficulty") as HTMLSelectElement,
+  langRandom: $("#lang-random") as HTMLButtonElement,
+  langPresets: $("#lang-presets") as HTMLSpanElement,
 };
 
 function renderHeaderMeta(): void {
@@ -422,6 +435,55 @@ function reset(): void {
   renderNPCs();
 }
 
+// ─── Language switching ────────────────────────────────────────────
+// Rebuilds LANG from a new (seed, difficulty), repaints lexicon /
+// morphology / header, and clears the stream because every prior
+// utterance was encoded against the old spec. World state and tick
+// count survive — the village is language-independent.
+function setLanguage(seed: string, difficulty: Difficulty): void {
+  const trimmed = seed.trim();
+  let next;
+  try {
+    next = randomLanguage(trimmed === "" ? undefined : trimmed, difficulty);
+  } catch (err) {
+    showCmdError(`language gen failed: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+  LANG = next;
+  currentSeed = trimmed;
+  currentDifficulty = difficulty;
+  // Custom seeds (e.g. Malay) ignore difficulty and pick their own — sync
+  // the picker so the UI reflects what's actually in effect.
+  if (LANG.difficulty) currentDifficulty = LANG.difficulty;
+  els.langSeed.value = currentSeed || LANG.id;
+  els.langDifficulty.value = currentDifficulty;
+
+  pendingOverrides.clear();
+  els.stream.innerHTML = "";
+  clearCmdError();
+  els.cmdInput.value = "";
+  renderHeaderMeta();
+  renderLexicon();
+  renderMorphology();
+  renderNPCs();
+}
+
+function renderPresets(): void {
+  const names = customLanguageNames();
+  els.langPresets.innerHTML = "";
+  if (names.length === 0) return;
+  els.langPresets.appendChild(document.createTextNode("presets: "));
+  for (const name of names) {
+    const a = document.createElement("a");
+    a.textContent = name;
+    a.addEventListener("click", () => {
+      els.langSeed.value = name;
+      setLanguage(name, currentDifficulty);
+    });
+    els.langPresets.appendChild(a);
+  }
+}
+
 // ─── Wire controls ─────────────────────────────────────────────────
 els.play.addEventListener("click", () => (playing ? pause() : play()));
 els.step.addEventListener("click", () => {
@@ -447,9 +509,24 @@ els.cmdInput.addEventListener("input", () => {
   if (els.cmdError.classList.contains("show")) clearCmdError();
 });
 
+els.langForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const diff = els.langDifficulty.value as Difficulty;
+  setLanguage(els.langSeed.value, diff);
+});
+els.langRandom.addEventListener("click", () => {
+  els.langSeed.value = randomSeedString();
+  const diff = els.langDifficulty.value as Difficulty;
+  setLanguage(els.langSeed.value, diff);
+});
+
 // Spacebar: play/pause.
 window.addEventListener("keydown", (e) => {
-  if (e.target instanceof HTMLInputElement) return;
+  if (
+    e.target instanceof HTMLInputElement ||
+    e.target instanceof HTMLSelectElement ||
+    e.target instanceof HTMLTextAreaElement
+  ) return;
   if (e.code === "Space") {
     e.preventDefault();
     playing ? pause() : play();
@@ -462,6 +539,9 @@ window.addEventListener("keydown", (e) => {
 });
 
 // ─── Initial paint ─────────────────────────────────────────────────
+els.langSeed.value = currentSeed;
+els.langDifficulty.value = currentDifficulty;
+renderPresets();
 renderHeaderMeta();
 renderLexicon();
 renderMorphology();

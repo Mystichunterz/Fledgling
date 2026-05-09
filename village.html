@@ -69,6 +69,63 @@
         color: var(--ink-dim);
         margin-left: 10px;
       }
+      .lang-form {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 11px;
+        color: var(--ink-faint);
+        margin: 0 16px;
+        flex-wrap: wrap;
+      }
+      .lang-field {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .lang-form input[type="text"],
+      .lang-form select {
+        background: var(--bg-3);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 3px 7px;
+        font-family: var(--mono);
+        font-size: 11px;
+        outline: none;
+      }
+      .lang-form input[type="text"] { width: 110px; }
+      .lang-form input[type="text"]:focus,
+      .lang-form select:focus { border-color: var(--accent-2); }
+      .lang-form button {
+        font-family: var(--mono);
+        font-size: 11px;
+        background: var(--bg-3);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 3px 9px;
+        cursor: pointer;
+      }
+      .lang-form button:hover { border-color: var(--accent-2); }
+      .lang-form .lang-apply {
+        background: var(--accent);
+        color: #2a1d0d;
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      .lang-form .lang-apply:hover { background: #ffd494; }
+      .lang-presets {
+        font-size: 10px;
+        color: var(--ink-faint);
+      }
+      .lang-presets a {
+        color: var(--accent-2);
+        text-decoration: none;
+        cursor: pointer;
+        margin-right: 6px;
+      }
+      .lang-presets a:hover { text-decoration: underline; }
       header .tick-counter {
         font-variant-numeric: tabular-nums;
         color: var(--ink-dim);
@@ -248,8 +305,11 @@
         align-items: center;
       }
       .utter .who .name {
-        color: var(--ink-dim);
-        font-weight: 500;
+        font-family: var(--serif);
+        font-size: 16px;
+        color: var(--ink);
+        font-weight: 600;
+        letter-spacing: 0.01em;
       }
       .utter .who .frame-tag {
         font-size: 10px;
@@ -432,6 +492,22 @@
   <body>
     <header>
       <h1>Village sim<span class="sub" id="header-meta">…</span></h1>
+      <form class="lang-form" id="lang-form" autocomplete="off">
+        <label class="lang-field">
+          seed
+          <input type="text" id="lang-seed" spellcheck="false" />
+        </label>
+        <label class="lang-field">
+          mode
+          <select id="lang-difficulty">
+            <option value="simple">simple</option>
+            <option value="full">full</option>
+          </select>
+        </label>
+        <button type="button" id="lang-random" title="Random seed">🎲</button>
+        <button type="submit" id="lang-apply" class="lang-apply">apply</button>
+        <span class="lang-presets" id="lang-presets"></span>
+      </form>
       <div class="tick-counter">tick <strong id="tick-num">0</strong></div>
     </header>
 
