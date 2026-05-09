@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKeys } from '../assets/keys';
+import { startIslandBgm } from './BootScene';
 
 export const CUTSCENE_WIDTH = 320;
 export const CUTSCENE_HEIGHT = 180;
@@ -662,6 +663,9 @@ export class IntroCutsceneScene extends Phaser.Scene {
         break;
       case 'done':
         markIntroSeen();
+        // Cutscene BGM is stopped by this scene's SHUTDOWN handler; start
+        // the island BGM so the crash site has music when it loads.
+        startIslandBgm(this);
         this.scene.start(SceneKeys.CRASH_SITE);
         break;
     }

@@ -54,26 +54,14 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // Island BGM — loops for the whole gameplay session. Apply persisted
-    // mute state BEFORE play so a previously-muted player never hears a
-    // single unmuted frame. PlayerHudScene's top-right music button reads
-    // and toggles the same flag.
+    // Apply persisted mute state ONCE at boot — affects the global
+    // SoundManager so every later play() inherits it. PlayerHudScene's
+    // top-right music button reads/toggles the same flag.
     try {
       if (window.localStorage.getItem('fledgling.musicMuted') === '1') {
         this.sound.mute = true;
       }
     } catch { /* localStorage unavailable; default to unmuted */ }
-    // Browsers gate audio behind a user gesture. If the SoundManager is
-    // still locked, defer playback until Phaser fires `unlocked` (first
-    // pointerdown/keydown). Otherwise play immediately.
-    const startBgm = () => {
-      this.sound.play(AudioKeys.BGM_ISLAND, { loop: true, volume: 0.4 });
-    };
-    if (this.sound.locked) {
-      this.sound.once(Phaser.Sound.Events.UNLOCKED, startBgm);
-    } else {
-      startBgm();
-    }
 
     this.scene.run(SceneKeys.PLAYER_HUD);
     if (isDev()) this.scene.run(SceneKeys.DEBUG);
@@ -90,7 +78,28 @@ export class BootScene extends Phaser.Scene {
         newGame = true;
       }
     } catch { /* ignore */ }
-    if (newGame || !hasSeenIntro()) startScene = SceneKeys.INTRO_CUTSCENE;
+    const goingToIntro = newGame || !hasSeenIntro();
+    if (goingToIntro) startScene = SceneKeys.INTRO_CUTSCENE;
+
+    // Island BGM — only start it if we're going straight to gameplay. The
+    // intro cutscene has its own BGM and will kick the island track off when
+    // it hands over to the crash site, so we don't double up here.
+    if (!goingToIntro) startIslandBgm(this);
+
     this.scene.start(startScene);
   }
 }
+
+// Browsers gate audio behind a user gesture; defer playback until Phaser
+// fires `unlocked` if the SoundManager is still locked. Shared with the
+// intro cutscene's done→CRASH_SITE handover.
+export const startIslandBgm = (scene: Phaser.Scene) => {
+  const play = () => {
+    scene.sound.play(AudioKeys.BGM_ISLAND, { loop: true, volume: 0.4 });
+  };
+  if (scene.sound.locked) {
+    scene.sound.once(Phaser.Sound.Events.UNLOCKED, play);
+  } else {
+    play();
+  }
+};
