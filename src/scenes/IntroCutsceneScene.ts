@@ -6,6 +6,9 @@ export const CUTSCENE_HEIGHT = 180;
 const PLANE_KEY = 'intro_plane';
 const PLANE_PATH = '/assets/sprite_intro_plane.png';
 
+const BGM_KEY = 'bgm_cutscene';
+const BGM_PATH = '/assets/audio/Before_the_Heavens_Break.mp3';
+
 const SKY_CALM = 0x2b557a;
 const SKY_STORM = 0x1a2030;
 
@@ -250,6 +253,7 @@ export class IntroCutsceneScene extends Phaser.Scene {
 
   preload() {
     this.load.image(PLANE_KEY, PLANE_PATH);
+    this.load.audio(BGM_KEY, BGM_PATH);
   }
 
   create() {
@@ -281,6 +285,13 @@ export class IntroCutsceneScene extends Phaser.Scene {
     this.expoCanvas.hintAlpha = 0.6;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.expoCanvas.destroy());
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.expoCanvas.destroy());
+
+    // Cutscene BGM — loops while the demo is on-screen. Browsers may gate
+    // audio behind a user gesture; the cutscene's space/click skip will
+    // satisfy that on first input if not already granted.
+    this.sound.play(BGM_KEY, { loop: true, volume: 0.45 });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.sound.stopByKey(BGM_KEY));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.sound.stopByKey(BGM_KEY));
 
     this.bindInput();
 

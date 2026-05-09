@@ -37,7 +37,10 @@ export type SpriteKey = typeof SpriteKeys[keyof typeof SpriteKeys];
 export const FontKeys = {} as const;
 export type FontKey = typeof FontKeys[keyof typeof FontKeys];
 
-export const AudioKeys = {} as const;
+export const AudioKeys = {
+  BGM_ISLAND:   'bgm_island',
+  BGM_CUTSCENE: 'bgm_cutscene',
+} as const;
 export type AudioKey = typeof AudioKeys[keyof typeof AudioKeys];
 
 export const SceneKeys = {

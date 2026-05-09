@@ -7,8 +7,14 @@ import { LighthouseScene } from './scenes/LighthouseScene';
 import { DebugScene } from './scenes/DebugScene';
 import { PlayerHudScene } from './scenes/PlayerHudScene';
 
-export const VIEWPORT_WIDTH = 320;
-export const VIEWPORT_HEIGHT = 180;
+// Internal framebuffer size. World coords stay in the original 320x180-style
+// units; the camera zooms in by CAMERA_ZOOM so the visible world area is
+// unchanged but each world unit gets CAMERA_ZOOM-many framebuffer pixels.
+// This buys us higher render fidelity (notably, smooth bilinear downsamples
+// of the player's high-res asset) without rescaling any gameplay code.
+export const VIEWPORT_WIDTH = 640;
+export const VIEWPORT_HEIGHT = 360;
+export const CAMERA_ZOOM = 2;
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,

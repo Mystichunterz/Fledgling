@@ -17,6 +17,7 @@ import { paintFill } from '../engine/terrainTiles';
 import { attachProximityHighlight } from '../engine/highlight';
 import { LighthouseMenu } from '../ui/LighthouseMenu';
 import { snappedFollow } from '../engine/camera';
+import { CAMERA_ZOOM } from '../config';
 
 let sharedMenu: LighthouseMenu | null = null;
 const ensureMenu = () => {
@@ -63,6 +64,7 @@ export class LighthouseScene extends Phaser.Scene {
     GameRegistry.worldHeight = LIGHTHOUSE_HEIGHT;
     this.cameras.main.setBackgroundColor(0x6e4030);
     this.cameras.main.setBounds(0, 0, LIGHTHOUSE_WIDTH, LIGHTHOUSE_HEIGHT);
+    this.cameras.main.setZoom(CAMERA_ZOOM);
 
     // Cool, weather-bleached dirt for the headland cliffs — tinted grey-blue.
     paintFill(this, 0, 0, LIGHTHOUSE_WIDTH, 240, 'dirt', 0xb0a898);
