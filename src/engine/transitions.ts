@@ -17,6 +17,10 @@ export interface TransitionZone {
 
 export interface SceneEnterData {
   spawnAt?: string;
+  // Direct spawn coordinates. When set, override the named spawn point.
+  // Used by the dev teleport-to-NPC menu.
+  x?: number;
+  y?: number;
 }
 
 export const FADE_MS = 200;

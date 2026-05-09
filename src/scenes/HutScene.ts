@@ -37,8 +37,11 @@ export class HutScene extends Phaser.Scene {
     super(SceneKeys.HUT);
   }
 
+  private spawnXY: { x: number; y: number } | null = null;
+
   init(data: SceneEnterData) {
     this.spawnAt = data.spawnAt;
+    this.spawnXY = data.x != null && data.y != null ? { x: data.x, y: data.y } : null;
   }
 
   create() {
@@ -77,7 +80,7 @@ export class HutScene extends Phaser.Scene {
     const spawn = resolveSpawn(SPAWN_POINTS, this.spawnAt, 'default');
     this.player = new Player(
       this,
-      spawn.x, spawn.y,
+      this.spawnXY?.x ?? spawn.x, this.spawnXY?.y ?? spawn.y,
       {
         x0: 24,
         y0: 80,
