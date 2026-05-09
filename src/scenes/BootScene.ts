@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { AudioKeys, SceneKeys, SpriteKeys } from '../assets/keys';
 import { isDev } from '../engine/dev';
+import { hasSeenIntro } from './IntroCutsceneScene';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -74,16 +75,19 @@ export class BootScene extends Phaser.Scene {
     this.scene.run(SceneKeys.PLAYER_HUD);
     if (isDev()) this.scene.run(SceneKeys.DEBUG);
 
-    // Dev "New Game" reset stashes a one-shot flag so the next boot lands
-    // at the crash site and the prologue plays. Consume it here so a
-    // subsequent normal refresh returns to the default village start.
+    // Dev "New Game" reset stashes a one-shot flag so the next boot replays
+    // the intro cutscene. First-time players (no intro_seen marker) also
+    // get routed through the cutscene; returning players land in the
+    // village they last saw.
     let startScene: string = SceneKeys.VILLAGE;
+    let newGame = false;
     try {
       if (sessionStorage.getItem('fledgling:newgame') === '1') {
         sessionStorage.removeItem('fledgling:newgame');
-        startScene = SceneKeys.CRASH_SITE;
+        newGame = true;
       }
     } catch { /* ignore */ }
+    if (newGame || !hasSeenIntro()) startScene = SceneKeys.INTRO_CUTSCENE;
     this.scene.start(startScene);
   }
 }
