@@ -49,7 +49,8 @@ game.events.once('ready', () => {
       spawnNpcsForScene(scene, npcSceneKey);
       spawnPickupTiles(scene, npcSceneKey);
       if (sceneKey === SceneKeys.CRASH_SITE) handlePemiAtBeach(scene);
-      if (sceneKey === SceneKeys.VILLAGE) attachHutJournalProximity(scene);
+      if (sceneKey === SceneKeys.VILLAGE) attachHutJournalProximity(scene, { x: 176, y: 137, radius: 80 });
+      if (sceneKey === SceneKeys.HUT)     attachHutJournalProximity(scene, { x: 160, y: 170, radius: 64 });
     });
   }
 });

@@ -15,7 +15,6 @@ import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 import { paintFill } from '../engine/terrainTiles';
 import { snappedFollow } from '../engine/camera';
-import { maybeOpenJournalOnHutEntry } from '../ui/JournalOverlay';
 
 export const HUT_WIDTH = 480;
 export const HUT_HEIGHT = 270;
@@ -98,9 +97,6 @@ export class HutScene extends Phaser.Scene {
     }
 
     fadeInOnEnter(this);
-    // The west-edge village transition lands you here before the village
-    // proximity check can fire — so open the journal on hut-scene entry too.
-    maybeOpenJournalOnHutEntry();
   }
 
   override update(_time: number, delta: number) {
