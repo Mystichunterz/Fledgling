@@ -3,6 +3,10 @@ import { SceneKeys } from '../assets/keys';
 import { GameRegistry, giveItem, clearItems } from '../state/GameRegistry';
 import { ITEMS, ITEM_LABEL, type ItemId } from '../state/items';
 import { NPC_ROSTER } from '../sim/npcRoster';
+import { setFlag, isFlagSet, clearFlags } from '../state/dialogueFlags';
+import { clearDiary } from '../sim/diary';
+import { resetPrologue } from './CrashPrologue';
+import type { StateFlag } from '../sim/dialogueTypes';
 
 const HOTKEY_TO_SCENE: Record<string, string> = {
   '1': SceneKeys.CRASH_SITE,
@@ -27,11 +31,67 @@ const NPC_SCENE_TO_KEY: Record<string, string> = {
   lighthouse: SceneKeys.LIGHTHOUSE,
 };
 
+// Dialogue/state flags exposed in the dev HUD as toggle pills, grouped by
+// category for legibility. The full union lives in sim/dialogueTypes.ts.
+const FLAG_GROUPS: Array<{ label: string; flags: Array<{ flag: StateFlag; label: string }> }> = [
+  {
+    label: 'anchor',
+    flags: [
+      { flag: 'anchor_known.hi',   label: 'hi' },
+      { flag: 'anchor_known.me',   label: 'me' },
+      { flag: 'anchor_known.you',  label: 'you' },
+      { flag: 'anchor_known.want', label: 'want' },
+      { flag: 'anchor_known.go',   label: 'go' },
+    ],
+  },
+  {
+    label: 'met',
+    flags: [
+      { flag: 'met_pemi', label: 'Pemi' },
+      { flag: 'met_naro', label: 'Naro' },
+      { flag: 'met_lemu', label: 'Lemu' },
+      { flag: 'met_toka', label: 'Toka' },
+      { flag: 'met_senu', label: 'Senu' },
+      { flag: 'met_hala', label: 'Hala' },
+    ],
+  },
+  {
+    label: 'fetch',
+    flags: [
+      { flag: 'fetch_done_pemi', label: 'Pemi' },
+      { flag: 'fetch_done_naro', label: 'Naro' },
+      { flag: 'fetch_done_lemu', label: 'Lemu' },
+      { flag: 'fetch_done_toka', label: 'Toka' },
+      { flag: 'fetch_done_senu', label: 'Senu' },
+      { flag: 'fetch_done_hala', label: 'Hala' },
+    ],
+  },
+  {
+    label: 'holding',
+    flags: [
+      { flag: 'holding_fruit',  label: 'fruit' },
+      { flag: 'holding_water',  label: 'water' },
+      { flag: 'holding_rope',   label: 'rope' },
+      { flag: 'holding_basket', label: 'basket' },
+    ],
+  },
+  {
+    label: 'misc',
+    flags: [
+      { flag: 'has_visited_hut',  label: 'visited-hut' },
+      { flag: 'holds_item_wood',  label: 'has-wood' },
+      { flag: 'holds_item_oil',   label: 'has-oil' },
+      { flag: 'holds_item_flint', label: 'has-flint' },
+    ],
+  },
+];
+
 export class DebugScene extends Phaser.Scene {
   private hudEl: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
   private buttons = new Map<string, HTMLButtonElement>();
   private itemButtons = new Map<ItemId, HTMLButtonElement>();
+  private flagButtons = new Map<StateFlag, HTMLButtonElement>();
   private hudVisible = true;
   private rafHandle = 0;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -97,11 +157,52 @@ export class DebugScene extends Phaser.Scene {
       items.appendChild(btn);
       this.itemButtons.set(id, btn);
     }
-    const reset = document.createElement('button');
-    reset.textContent = 'Reset';
-    reset.addEventListener('click', () => clearItems());
-    items.appendChild(reset);
+    const clearItemsBtn = document.createElement('button');
+    clearItemsBtn.textContent = 'Clear items';
+    clearItemsBtn.title = 'Drop every item and unlight the beacon';
+    clearItemsBtn.addEventListener('click', () => clearItems());
+    items.appendChild(clearItemsBtn);
     this.hudEl.appendChild(items);
+
+    for (const group of FLAG_GROUPS) {
+      const row = document.createElement('div');
+      row.className = 'teleport flags';
+      const lbl = document.createElement('span');
+      lbl.textContent = `${group.label}:`;
+      lbl.style.cssText = 'opacity: 0.55; font-size: 10px; align-self: center; margin-right: 2px; min-width: 42px;';
+      row.appendChild(lbl);
+      for (const { flag, label } of group.flags) {
+        const btn = document.createElement('button');
+        btn.dataset.flag = flag;
+        btn.textContent = label;
+        btn.title = flag;
+        btn.addEventListener('click', () => setFlag(flag, !isFlagSet(flag)));
+        row.appendChild(btn);
+        this.flagButtons.set(flag, btn);
+      }
+      this.hudEl.appendChild(row);
+    }
+    const flagsClearRow = document.createElement('div');
+    flagsClearRow.className = 'teleport flags';
+    const flagsClearLbl = document.createElement('span');
+    flagsClearLbl.textContent = 'flags:';
+    flagsClearLbl.style.cssText = 'opacity: 0.55; font-size: 10px; align-self: center; margin-right: 2px; min-width: 42px;';
+    flagsClearRow.appendChild(flagsClearLbl);
+    const flagsClearBtn = document.createElement('button');
+    flagsClearBtn.textContent = 'Clear all';
+    flagsClearBtn.addEventListener('click', () => clearFlags());
+    flagsClearRow.appendChild(flagsClearBtn);
+    this.hudEl.appendChild(flagsClearRow);
+
+    const resetRow = document.createElement('div');
+    resetRow.className = 'teleport reset-row';
+    const newGameBtn = document.createElement('button');
+    newGameBtn.className = 'new-game';
+    newGameBtn.textContent = '↺ New Game (reset all)';
+    newGameBtn.title = 'Wipe items, flags, diary, and prologue, then reload';
+    newGameBtn.addEventListener('click', () => this.resetEverything());
+    resetRow.appendChild(newGameBtn);
+    this.hudEl.appendChild(resetRow);
 
     const hint = document.createElement('div');
     hint.className = 'hint';
@@ -174,6 +275,23 @@ export class DebugScene extends Phaser.Scene {
     for (const [id, btn] of this.itemButtons) {
       btn.classList.toggle('active', GameRegistry.itemsCollected.has(id));
     }
+    for (const [flag, btn] of this.flagButtons) {
+      btn.classList.toggle('active', isFlagSet(flag));
+    }
+  }
+
+  private resetEverything() {
+    const ok = window.confirm('Reset to a fresh game? This clears items, dialogue flags, diary entries, and the prologue marker, then reloads at the crash site.');
+    if (!ok) return;
+    clearItems();
+    clearFlags();
+    clearDiary();
+    resetPrologue();
+    // Boot normally drops the player into the village. After a hard reset
+    // we want the prologue to play, so flag the next boot to land at the
+    // crash site instead. BootScene reads and clears this on startup.
+    try { sessionStorage.setItem('fledgling:newgame', '1'); } catch { /* ignore */ }
+    window.location.reload();
   }
 
   private toggle() {

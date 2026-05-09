@@ -29,11 +29,12 @@ export const ITEM_GLYPH: Record<ItemId, string> = {
   basket: 'b',
 };
 
-// Sprites only exist for the four "real" items today (wood/oil/flint/fruit).
-// Water/rope/basket fall back to the glyph in the hotbar slot.
 export const ITEM_SPRITE: Partial<Record<ItemId, SpriteKey>> = {
-  wood:  SpriteKeys.ITEM_WOOD,
-  oil:   SpriteKeys.ITEM_OIL,
-  flint: SpriteKeys.ITEM_FLINT,
-  fruit: SpriteKeys.ITEM_FRUIT,
+  wood:   SpriteKeys.ITEM_WOOD,
+  oil:    SpriteKeys.ITEM_OIL,
+  flint:  SpriteKeys.ITEM_FLINT,
+  fruit:  SpriteKeys.ITEM_FRUIT,
+  water:  SpriteKeys.ITEM_WATER,
+  rope:   SpriteKeys.ITEM_ROPE,
+  basket: SpriteKeys.ITEM_BASKET,
 };
