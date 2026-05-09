@@ -6,6 +6,7 @@ import { HutScene } from './scenes/HutScene';
 import { LighthouseScene } from './scenes/LighthouseScene';
 import { DebugScene } from './scenes/DebugScene';
 import { PlayerHudScene } from './scenes/PlayerHudScene';
+import { TileDemoScene } from './scenes/TileDemoScene';
 
 export const VIEWPORT_WIDTH = 320;
 export const VIEWPORT_HEIGHT = 180;
@@ -23,5 +24,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   },
   dom: { createContainer: true },
   backgroundColor: '#0a0a14',
-  scene: [BootScene, CrashSiteScene, VillageScene, HutScene, LighthouseScene, PlayerHudScene, DebugScene],
+  scene: [BootScene, TileDemoScene, CrashSiteScene, VillageScene, HutScene, LighthouseScene, PlayerHudScene, DebugScene],
 };

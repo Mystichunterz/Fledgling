@@ -21,6 +21,7 @@ export const SceneKeys = {
   BOOT: 'boot',
   CRASH_SITE: 'crash_site',
   VILLAGE: 'village',
+  TILE_DEMO: 'tile_demo',
   HUT: 'hut',
   LIGHTHOUSE: 'lighthouse',
   DEBUG: 'debug',

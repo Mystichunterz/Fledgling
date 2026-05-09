@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { SceneKeys, SpriteKeys } from '../assets/keys';
-import { isDev } from '../engine/dev';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -25,8 +24,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    this.scene.run(SceneKeys.PLAYER_HUD);
-    if (isDev()) this.scene.run(SceneKeys.DEBUG);
-    this.scene.start(SceneKeys.VILLAGE);
+    this.scene.start(SceneKeys.TILE_DEMO);
   }
 }
