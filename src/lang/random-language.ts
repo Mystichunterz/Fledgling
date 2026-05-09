@@ -42,6 +42,8 @@ const VERB_CONCEPTS = [
   "SEE", "SAY", "MAKE", "EAT",
   // Social / dialogue frames added for game integration.
   "GREET", "AFFIRM", "DENY", "DECIDE", "KNOW", "BE_STATE",
+  // Equational copula — name/identity statements ("I am Pemi").
+  "BE_IDENTITY",
 ] as const;
 const ITEM_CONCEPTS = [
   "FLINT", "STICK", "LIGHTER", "BREAD", "WATER",

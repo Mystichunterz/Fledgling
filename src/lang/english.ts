@@ -34,8 +34,9 @@ const VERBS: Record<string, Verb> = {
   SEE:      { base: "see",   thirdSg: "sees",   past: "saw" },
   SAY:      { base: "say",   thirdSg: "says",   past: "said" },
   MAKE:     { base: "make",  thirdSg: "makes",  past: "made" },
-  EAT:      { base: "eat",   thirdSg: "eats",   past: "ate" },
-  BE_STATE: { base: "be",    thirdSg: "is",     past: "was" },
+  EAT:         { base: "eat",   thirdSg: "eats",   past: "ate" },
+  BE_STATE:    { base: "be",    thirdSg: "is",     past: "was" },
+  BE_IDENTITY: { base: "be",    thirdSg: "is",     past: "was" },
 };
 
 // Per-frame English argument layout: which role is the subject and the
@@ -59,8 +60,9 @@ const TEMPLATES: Record<string, Template> = {
   SEE:      { subject: "viewer",      args: [{ role: "target" }] },
   SAY:      { subject: "speaker",     args: [{ role: "content" }, { role: "recipient", prep: "to" }] },
   MAKE:     { subject: "agent",       args: [{ role: "patient" }, { role: "source", prep: "from" }] },
-  EAT:      { subject: "agent",       args: [{ role: "patient" }] },
-  BE_STATE: { subject: "experiencer", args: [{ role: "state" }] },
+  EAT:         { subject: "agent",       args: [{ role: "patient" }] },
+  BE_STATE:    { subject: "experiencer", args: [{ role: "state" }] },
+  BE_IDENTITY: { subject: "entity",      args: [{ role: "identity" }] },
 };
 
 // ── Agreement & noun phrases ─────────────────────────────────────
@@ -252,6 +254,19 @@ function englishClause(frame: FilledFrame, opts: ClauseOpts = {}): string {
 
   // Plain statement.
   const subj = nounPhrase(subjectFiller, subjectRole, "subject");
+
+  // BE_IDENTITY: render the `identity` slot as a bare proper name
+  // ("I am Pemi.") rather than the article-prefixed default ("I am the
+  // pemi."). Falls through to the general path for the wh / polar /
+  // negated branches above.
+  if (frame.predicate === "BE_IDENTITY") {
+    const identityFiller = frame.roles["identity"];
+    if (identityFiller && isEntityRef(identityFiller)) {
+      const v = inflect(verb, subjectAgr, tense);
+      const name = capitalize(identityFiller.conceptId.toLowerCase());
+      return `${capitalize(subj)} ${v} ${name}.`;
+    }
+  }
 
   // SAY with a nested-frame content reads better as "tells X that Y …"
   // than the literal "says Y to X".
