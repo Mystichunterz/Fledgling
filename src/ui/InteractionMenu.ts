@@ -86,9 +86,16 @@ export class InteractionMenu {
     const rect = canvas.getBoundingClientRect();
     const sx = rect.width / scene.scale.width;
     const sy = rect.height / scene.scale.height;
+    // Project via cam.worldView (already factors zoom + scroll + bounds-clamp).
+    // Using cam.scrollX directly is wrong at zoom > 1: Phaser computes
+    // midPoint = scrollX + cam.width/2 (unscaled), so worldView.x diverges
+    // from scrollX as zoom rises. Mirror Enterprise's NpcLabel formula.
+    const view = cam.worldView;
+    const canvasX = cam.x + ((worldX - view.x) / view.width) * cam.width;
+    const canvasY = cam.y + ((worldY - view.y) / view.height) * cam.height;
     return {
-      x: rect.left + (worldX - cam.scrollX) * sx,
-      y: rect.top + (worldY - cam.scrollY) * sy,
+      x: rect.left + canvasX * sx,
+      y: rect.top + canvasY * sy,
     };
   }
 
