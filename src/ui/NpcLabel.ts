@@ -1,24 +1,29 @@
 import Phaser from 'phaser';
 
-interface Followable { x: number; y: number; }
+interface Followable { x: number; y: number; height: number; }
 
 // Phaser's DOMElement uses a container positioned at the canvas parent's
-// top-left, but #game is flex-centered with min-height:100vh so the canvas
-// is offset within its parent — DOMElements end up shifted by that gap.
+// top-left, but #game flex-centers the canvas inside a 100vh box so labels
+// added via scene.add.dom drift downward by exactly that vertical gap.
 // We sidestep that by appending labels to <body> and updating their CSS
 // each frame from the canvas's own getBoundingClientRect().
+//
+// The label is positioned with its bottom-center anchored `gap` CSS pixels
+// above the sprite's rendered top — independent of camera zoom, so the
+// label sits cleanly above the head whether the canvas is 320x180 or 6x
+// upscaled.
 export const attachLabel = (
   scene: Phaser.Scene,
   sprite: Followable,
   text: string,
-  offsetY = -22,
+  gap = 6,
 ) => {
   const el = document.createElement('div');
   el.textContent = text;
   el.style.cssText = `
     position: fixed; left: 0; top: 0;
     font-family: ui-monospace, "Cascadia Code", "Courier New", monospace;
-    font-size: 14px; font-weight: 600; color: #f2e6c9;
+    font-size: 24px; font-weight: 600; color: #f2e6c9;
     text-shadow: 0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 -1px 0 #000;
     white-space: nowrap; pointer-events: none; user-select: none;
     z-index: 500;
@@ -32,9 +37,11 @@ export const attachLabel = (
     const rect = canvas.getBoundingClientRect();
     const sx = rect.width / scene.scale.width;
     const sy = rect.height / scene.scale.height;
+    // Sprite origin is assumed (0.5, 1) — sprite.y is the bottom edge.
+    const spriteTopWorldY = sprite.y - sprite.height;
     const cssX = rect.left + (sprite.x - cam.scrollX) * sx;
-    const cssY = rect.top + (sprite.y + offsetY - cam.scrollY) * sy;
-    el.style.transform = `translate(${cssX}px, ${cssY}px) translateX(-50%)`;
+    const cssY = rect.top + (spriteTopWorldY - cam.scrollY) * sy - gap;
+    el.style.transform = `translate(${cssX}px, ${cssY}px) translate(-50%, -100%)`;
   };
 
   update();

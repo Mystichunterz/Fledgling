@@ -29,7 +29,7 @@ export class DialogueDemoScene extends Phaser.Scene {
       const label = npc.holdsItem
         ? `${npc.displayName} (${npc.archetype}, ${npc.holdsItem})`
         : `${npc.displayName} (${npc.archetype})`;
-      attachLabel(this, sprite, label, -42);
+      attachLabel(this, sprite, label);
       attachInteraction(sprite, npc.id);
     });
 

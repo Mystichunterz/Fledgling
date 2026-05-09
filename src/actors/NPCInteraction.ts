@@ -30,7 +30,6 @@ export const attachInteraction = (sprite: Phaser.GameObjects.Rectangle, npcId: N
   });
 
   sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-    console.log('[NPC] pointerdown', npcId, 'at', sprite.x, sprite.y);
     pointer.event?.stopPropagation?.();
     menu.open(sprite.scene, sprite.x, sprite.y, [
       {
