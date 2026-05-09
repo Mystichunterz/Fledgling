@@ -4,7 +4,9 @@ A procedurally-generated language-learning game. Built for the [AI Engineer Hack
 
 The player is dropped into a village of NPCs speaking a language generated at runtime, and must learn it by overhearing dialogue and watching daily routines.
 
-Inspirations: *Chants of Senaar*, *Heaven's Vault*, *7 Days to End With You*.
+A self-contained 5–10 minute loop: crash on the beach, meet a child who teaches you a handful of anchor words, work out which villagers hold the wood, oil, and flint you'll need, ask each in their tongue, light the lighthouse beacon to signal a passing ship, and choose whether to leave or stay. *Cosy, no combat, no fail states.*
+
+The headline trick: **the language, the lexicon, and the predecessor's name and fate are all procedurally generated** each run. Re-roll for a fresh playthrough — replayability is the point. Detailed plan in [`../PLAN.md`](../PLAN.md), the build contract in [`../REQUIREMENTS.md`](../REQUIREMENTS.md).
 
 ## Stack
 
