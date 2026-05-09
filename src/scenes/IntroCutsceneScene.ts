@@ -1,7 +1,22 @@
 import Phaser from 'phaser';
+import { SceneKeys } from '../assets/keys';
 
 export const CUTSCENE_WIDTH = 320;
 export const CUTSCENE_HEIGHT = 180;
+
+const INTRO_STORAGE_KEY = 'fledgling:intro_seen:v1';
+
+export const hasSeenIntro = (): boolean => {
+  try { return localStorage.getItem(INTRO_STORAGE_KEY) === '1'; } catch { return false; }
+};
+
+export const markIntroSeen = () => {
+  try { localStorage.setItem(INTRO_STORAGE_KEY, '1'); } catch { /* ignore */ }
+};
+
+export const resetIntro = () => {
+  try { localStorage.removeItem(INTRO_STORAGE_KEY); } catch { /* ignore */ }
+};
 
 const PLANE_KEY = 'intro_plane';
 const PLANE_PATH = '/assets/sprite_intro_plane.png';
@@ -30,6 +45,49 @@ const EXPO_LINE_GAP_MS = 1500;
 const EXPO_FINAL_HOLD_MS = 1800;
 
 type Phase = 'calm' | 'storm' | 'crash' | 'flash' | 'black' | 'exposition' | 'done';
+
+// Hide world-HUD DOM elements during the cutscene. They live outside Phaser
+// scenes (PlayerHudScene/DebugScene drive them) so we toggle the `hidden`
+// attribute directly and restore it when the cutscene tears down.
+const HUD_IDS = ['player-hud', 'debug-hud'] as const;
+const HUD_RESTORE: Record<string, boolean> = {};
+function setHudsHidden(hide: boolean) {
+  for (const id of HUD_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (hide) {
+      HUD_RESTORE[id] = el.hasAttribute('hidden');
+      el.setAttribute('hidden', '');
+    } else if (!HUD_RESTORE[id]) {
+      el.removeAttribute('hidden');
+    }
+  }
+}
+
+// PlaneOverlay/ExpoCanvas expect specific DOM nodes (originally provided by
+// cutscene-demo.html). Create them on demand so the cutscene works inside
+// the main game shell as well, with the same styling.
+function ensureCutsceneDom() {
+  if (!document.getElementById('cutscene-plane')) {
+    const img = document.createElement('img');
+    img.id = 'cutscene-plane';
+    img.src = '/assets/sprite_intro_plane.png';
+    img.alt = '';
+    img.draggable = false;
+    img.style.cssText =
+      'position:fixed;top:0;left:0;pointer-events:none;user-select:none;' +
+      'z-index:1500;display:none;image-rendering:auto;transform-origin:center center;';
+    document.body.appendChild(img);
+  }
+  if (!document.getElementById('expo-overlay')) {
+    const canvas = document.createElement('canvas');
+    canvas.id = 'expo-overlay';
+    canvas.style.cssText =
+      'position:fixed;top:0;left:0;width:100vw;height:100vh;' +
+      'pointer-events:none;z-index:1600;image-rendering:auto;';
+    document.body.appendChild(canvas);
+  }
+}
 
 interface Smoke {
   rect: Phaser.GameObjects.Rectangle;
@@ -254,9 +312,24 @@ export class IntroCutsceneScene extends Phaser.Scene {
   preload() {
     this.load.image(PLANE_KEY, PLANE_PATH);
     this.load.audio(BGM_KEY, BGM_PATH);
+    ensureCutsceneDom();
   }
 
   create() {
+    // The cutscene authors its world in 320x180 units; the main game canvas
+    // is 640x360, so zoom 2× and recenter so the 320x180 stage fills it.
+    // (PlaneOverlay's CSS-pixel scaling already follows the canvas size.)
+    const zoomX = this.scale.width / CUTSCENE_WIDTH;
+    const zoomY = this.scale.height / CUTSCENE_HEIGHT;
+    this.cameras.main.setZoom(Math.min(zoomX, zoomY));
+    this.cameras.main.centerOn(CUTSCENE_WIDTH / 2, CUTSCENE_HEIGHT / 2);
+
+    // Keep the world HUDs out of frame while the cutscene plays — they're
+    // empty anyway, but the wooden hotbar would peek out at the bottom.
+    setHudsHidden(true);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => setHudsHidden(false));
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => setHudsHidden(false));
+
     this.sky = this.add.rectangle(
       CUTSCENE_WIDTH / 2, CUTSCENE_HEIGHT / 2,
       CUTSCENE_WIDTH, CUTSCENE_HEIGHT,
@@ -580,7 +653,8 @@ export class IntroCutsceneScene extends Phaser.Scene {
         this.phase = 'done';
         break;
       case 'done':
-        // hand-off point: in production this transitions into BootScene/CrashSiteScene.
+        markIntroSeen();
+        this.scene.start(SceneKeys.CRASH_SITE);
         break;
     }
   }

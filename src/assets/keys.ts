@@ -45,6 +45,7 @@ export type AudioKey = typeof AudioKeys[keyof typeof AudioKeys];
 
 export const SceneKeys = {
   BOOT: 'boot',
+  INTRO_CUTSCENE: 'intro-cutscene',
   CRASH_SITE: 'crash_site',
   VILLAGE: 'village',
   HUT: 'hut',

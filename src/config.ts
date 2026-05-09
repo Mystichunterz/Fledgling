@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
+import { IntroCutsceneScene } from './scenes/IntroCutsceneScene';
 import { CrashSiteScene } from './scenes/CrashSiteScene';
 import { VillageScene } from './scenes/VillageScene';
 import { HutScene } from './scenes/HutScene';
@@ -29,5 +30,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   },
   dom: { createContainer: true },
   backgroundColor: '#0a0a14',
-  scene: [BootScene, CrashSiteScene, VillageScene, HutScene, LighthouseScene, PlayerHudScene, DebugScene],
+  scene: [BootScene, IntroCutsceneScene, CrashSiteScene, VillageScene, HutScene, LighthouseScene, PlayerHudScene, DebugScene],
 };

@@ -6,6 +6,7 @@ import { NPC_ROSTER } from '../sim/npcRoster';
 import { setFlag, isFlagSet, clearFlags } from '../state/dialogueFlags';
 import { clearDiary } from '../sim/diary';
 import { resetPrologue } from './CrashPrologue';
+import { resetIntro } from './IntroCutsceneScene';
 import type { StateFlag } from '../sim/dialogueTypes';
 
 const HOTKEY_TO_SCENE: Record<string, string> = {
@@ -287,6 +288,7 @@ export class DebugScene extends Phaser.Scene {
     clearFlags();
     clearDiary();
     resetPrologue();
+    resetIntro();
     // Boot normally drops the player into the village. After a hard reset
     // we want the prologue to play, so flag the next boot to land at the
     // crash site instead. BootScene reads and clears this on startup.
