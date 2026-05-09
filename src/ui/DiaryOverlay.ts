@@ -194,6 +194,17 @@ export class DiaryOverlay {
       input.onfocus = () => { input.style.borderColor = '#a88848'; };
       input.onblur = () => { input.style.borderColor = '#5a4828'; setGuess(entry.token, input.value.trim()); };
       input.onchange = () => setGuess(entry.token, input.value.trim());
+      // Eat movement-key keydown at input target so it never bubbles to
+      // Phaser's window listener and walks the player around. Default
+      // action (typing the character) still runs.
+      input.addEventListener('keydown', (ev) => {
+        const k = ev.key;
+        const movement =
+          k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown' ||
+          k === 'w' || k === 'a' || k === 's' || k === 'd' ||
+          k === 'W' || k === 'A' || k === 'S' || k === 'D';
+        if (movement) ev.stopPropagation();
+      });
       row.appendChild(input);
 
       const meta = document.createElement('div');
