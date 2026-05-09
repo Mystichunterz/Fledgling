@@ -24,18 +24,90 @@ const encodeSurface = (frames: FilledFrame[]): string => {
   }
 };
 
+const escapeHtml = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// Split an authored english string into ordered chunks. `(...)` becomes a stage
+// direction, `"..."` becomes quoted speech, anything else is incidental text.
+type EnglishChunk = { kind: 'stage' | 'speech' | 'text'; content: string };
+const parseEnglish = (english: string): EnglishChunk[] => {
+  const chunks: EnglishChunk[] = [];
+  const re = /\(([^)]*)\)|"([^"]*)"/g;
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(english)) !== null) {
+    if (m.index > lastIdx) {
+      const txt = english.slice(lastIdx, m.index);
+      if (txt.trim()) chunks.push({ kind: 'text', content: txt });
+    }
+    if (m[1] !== undefined) chunks.push({ kind: 'stage', content: m[1] });
+    else chunks.push({ kind: 'speech', content: m[2] ?? '' });
+    lastIdx = re.lastIndex;
+  }
+  if (lastIdx < english.length) {
+    const txt = english.slice(lastIdx);
+    if (txt.trim()) chunks.push({ kind: 'text', content: txt });
+  }
+  return chunks;
+};
+
+// Compose a translated speech segment: keep the parenthesised English stage
+// directions where the author placed them, and drop in the encoded surface at
+// the position of the first non-stage chunk (which represents the dialogue,
+// whether the author wrote it as `"..."` or as bare unquoted prose). All other
+// non-stage chunks are dropped — the surface already concatenates every frame.
+// Returns parallel HTML + plain renderings: HTML drives the overlay (italic/dim
+// stage directions), plain feeds the diary.
+const composeSpeech = (english: string, surface: string): { html: string; plain: string } => {
+  if (!surface) return { html: escapeHtml(english), plain: english };
+  const chunks = parseEnglish(english);
+  if (chunks.length === 0) return { html: escapeHtml(surface), plain: surface };
+  const hasStage = chunks.some(c => c.kind === 'stage');
+  if (!hasStage) return { html: escapeHtml(surface), plain: surface };
+  const stageHtml = (text: string) =>
+    `<span style="color:#a89878;font-style:italic;">(${escapeHtml(text)})</span>`;
+  const htmlParts: string[] = [];
+  const plainParts: string[] = [];
+  let speechPlaced = false;
+  for (const c of chunks) {
+    if (c.kind === 'stage') {
+      htmlParts.push(stageHtml(c.content));
+      plainParts.push(`(${c.content})`);
+    } else if (!speechPlaced) {
+      htmlParts.push(`"${escapeHtml(surface)}"`);
+      plainParts.push(`"${surface}"`);
+      speechPlaced = true;
+    }
+  }
+  if (!speechPlaced) {
+    htmlParts.push(escapeHtml(surface));
+    plainParts.push(surface);
+  }
+  return { html: htmlParts.join(' '), plain: plainParts.join(' ') };
+};
+
 // Speech segments display as text; stage segments drive sprite anims and never
 // surface as text. When a speech segment carries frames we encode them into the
-// active language; otherwise we fall back to the authored english.
-const renderLine = (segments: LineSegment[]): string =>
-  segments
-    .filter(s => s.kind === 'speech')
-    .map(s => {
-      if (s.kind !== 'speech') return '';
-      const surface = s.frames && s.frames.length > 0 ? encodeSurface(s.frames) : '';
-      return surface || s.english;
-    })
-    .join(' ');
+// active language and weave the encoded surface back into the original english
+// structure so authored stage directions survive translation; otherwise we fall
+// back to the authored english verbatim.
+const renderLine = (segments: LineSegment[]): { html: string; plain: string } => {
+  const htmls: string[] = [];
+  const plains: string[] = [];
+  for (const s of segments) {
+    if (s.kind !== 'speech') continue;
+    const surface = s.frames && s.frames.length > 0 ? encodeSurface(s.frames) : '';
+    if (!surface) {
+      htmls.push(escapeHtml(s.english));
+      plains.push(s.english);
+      continue;
+    }
+    const composed = composeSpeech(s.english, surface);
+    htmls.push(composed.html);
+    plains.push(composed.plain);
+  }
+  return { html: htmls.join(' '), plain: plains.join(' ') };
+};
 
 const applySideEffects = (effects?: NodeSideEffect[]) => {
   if (!effects) return;
@@ -164,7 +236,7 @@ export class DialogueOverlay {
     // Encounter hook for the diary to subscribe to. Diary tokenises the
     // displayed string, so we send the rendered surface, not the segment array.
     window.dispatchEvent(new CustomEvent('fledgling:encounter', {
-      detail: { speaker: node.speaker, line: rendered, nodeId: node.id },
+      detail: { speaker: node.speaker, line: rendered.plain, nodeId: node.id },
     }));
 
     this.paint(node, rendered);
@@ -180,7 +252,7 @@ export class DialogueOverlay {
     this.paint(node, renderLine(node.line));
   }
 
-  private paint(node: DialogueNode, rendered: string) {
+  private paint(node: DialogueNode, rendered: { html: string; plain: string }) {
     if (this.devConsole && this.currentTree) {
       this.devConsole.update(this.currentTree, node, GameRegistry.language);
     }
@@ -188,7 +260,10 @@ export class DialogueOverlay {
     const npc = npcById(node.speaker);
     this.speakerEl.textContent = npc.displayName;
 
-    renderGlossed(rendered, this.lineEl);
+    // renderGlossed walks plain-text tokens and overlays the player's diary
+    // guesses as floating italic tags. Stage directions stay as `(...)` text
+    // — they tokenise to nothing the diary tracks, so they pass through.
+    renderGlossed(rendered.plain, this.lineEl);
 
     this.choicesEl.innerHTML = '';
     const visible = node.options.filter(o => !o.gatedBy || isFlagSet(o.gatedBy));
