@@ -16,6 +16,7 @@ import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDe
 import { paintFill } from '../engine/terrainTiles';
 import { snappedFollow } from '../engine/camera';
 import { CAMERA_ZOOM } from '../config';
+import { safeFire, setCurrentScene } from '../integration';
 
 export const HUT_WIDTH = 480;
 export const HUT_HEIGHT = 270;
@@ -46,6 +47,7 @@ export class HutScene extends Phaser.Scene {
 
   create() {
     GameRegistry.currentScene = SceneKeys.HUT;
+    safeFire(() => setCurrentScene('hut'));
     GameRegistry.worldWidth = HUT_WIDTH;
     GameRegistry.worldHeight = HUT_HEIGHT;
     this.cameras.main.setBackgroundColor(0x344050);

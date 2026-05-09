@@ -24,6 +24,35 @@ export const get = query({
   },
 });
 
+// Idempotent worldState seed. Created on first connect from the engine so
+// world mutations (collectItem, lightBeacon, etc.) have a row to mutate
+// without needing the full NPC seed:bootstrap flow first. Subsequent calls
+// no-op. Defaults are demo-tier values that get overwritten by a later
+// seed:bootstrap call if the team runs it.
+export const ensure = mutation({
+  args: {
+    predecessorName: v.optional(v.string()),
+    demoSeed: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.query("worldState").first();
+    if (existing) return { created: false, id: existing._id };
+
+    const id = await ctx.db.insert("worldState", {
+      currentTime: 360,
+      tickIntervalMs: 2000,
+      inGameMinutesPerTick: 30,
+      itemsCollected: [],
+      beaconLit: false,
+      endingChoice: null,
+      predecessorName: args.predecessorName ?? "Maren",
+      demoSeed: args.demoSeed ?? "live",
+      currentScene: "beach",
+    });
+    return { created: true, id };
+  },
+});
+
 export const advanceTime = mutation({
   args: { deltaMinutes: v.number() },
   handler: async (ctx, { deltaMinutes }) => {

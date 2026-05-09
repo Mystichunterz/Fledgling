@@ -78,3 +78,17 @@ export async function setEndingChoice(choice: EndingChoice): Promise<void> {
 export async function setCurrentScene(scene: Scene): Promise<void> {
   await getConvexClient().mutation(api.world.setCurrentScene, { scene });
 }
+
+export async function ensureWorld(): Promise<void> {
+  await getConvexClient().mutation(api.world.ensure, {});
+}
+
+export async function logDialogue(args: {
+  speakerSlug: string;
+  speakerName: string;
+  line: string;
+  nodeId: string;
+  scene: Scene;
+}): Promise<void> {
+  await getConvexClient().mutation(api.dialogueLog.log, args);
+}

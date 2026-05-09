@@ -16,6 +16,7 @@ import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDe
 import { paintFill } from '../engine/terrainTiles';
 import { snappedFollow } from '../engine/camera';
 import { CAMERA_ZOOM } from '../config';
+import { safeFire, setCurrentScene } from '../integration';
 
 export const CRASH_WIDTH = 640;
 export const CRASH_HEIGHT = 360;
@@ -46,6 +47,7 @@ export class CrashSiteScene extends Phaser.Scene {
 
   create() {
     GameRegistry.currentScene = SceneKeys.CRASH_SITE;
+    safeFire(() => setCurrentScene('beach'));
     GameRegistry.worldWidth = CRASH_WIDTH;
     GameRegistry.worldHeight = CRASH_HEIGHT;
     this.cameras.main.setBackgroundColor(0x1f4868);

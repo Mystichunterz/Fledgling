@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { AudioKeys, SceneKeys, SpriteKeys } from '../assets/keys';
 import { isDev } from '../engine/dev';
 import { hasSeenIntro } from './IntroCutsceneScene';
+import { safeFire, ensureWorld } from '../integration';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -54,6 +55,11 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    // Idempotent worldState seed so subsequent collectItem/lightBeacon/etc
+    // mutations have a row to mutate. Fire-and-forget; game runs offline if
+    // Convex is down.
+    safeFire(() => ensureWorld());
+
     // Apply persisted mute state ONCE at boot — affects the global
     // SoundManager so every later play() inherits it. PlayerHudScene's
     // top-right music button reads/toggles the same flag.

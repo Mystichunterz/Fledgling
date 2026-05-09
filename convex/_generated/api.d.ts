@@ -9,6 +9,7 @@
  */
 
 import type * as dialogue from "../dialogue.js";
+import type * as dialogueLog from "../dialogueLog.js";
 import type * as npcs from "../npcs.js";
 import type * as seed from "../seed.js";
 import type * as tick from "../tick.js";
@@ -22,6 +23,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   dialogue: typeof dialogue;
+  dialogueLog: typeof dialogueLog;
   npcs: typeof npcs;
   seed: typeof seed;
   tick: typeof tick;

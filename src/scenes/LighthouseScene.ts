@@ -18,6 +18,7 @@ import { attachProximityHighlight } from '../engine/highlight';
 import { LighthouseMenu } from '../ui/LighthouseMenu';
 import { snappedFollow } from '../engine/camera';
 import { CAMERA_ZOOM } from '../config';
+import { safeFire, setCurrentScene, lightBeacon } from '../integration';
 
 let sharedMenu: LighthouseMenu | null = null;
 const ensureMenu = () => {
@@ -59,6 +60,7 @@ export class LighthouseScene extends Phaser.Scene {
 
   create() {
     GameRegistry.currentScene = SceneKeys.LIGHTHOUSE;
+    safeFire(() => setCurrentScene('lighthouse'));
     GameRegistry.worldWidth = LIGHTHOUSE_WIDTH;
     GameRegistry.worldHeight = LIGHTHOUSE_HEIGHT;
     this.cameras.main.setBackgroundColor(0x6e4030);
@@ -134,6 +136,7 @@ export class LighthouseScene extends Phaser.Scene {
   private igniteBeacon() {
     if (GameRegistry.beaconLit) return;
     GameRegistry.beaconLit = true;
+    safeFire(() => lightBeacon());
     this.applyLitVisual(true);
     // Hold a beat on the lit pyre so the flash + flame land, then cut to the
     // end cutscene (cargo ship sailing off → fade to black → closing words).

@@ -86,3 +86,18 @@ export function closeConvex(): void {
     _client = null;
   }
 }
+
+/**
+ * Fire-and-forget wrapper for write mutations from the engine. Silently no-ops
+ * if VITE_CONVEX_URL isn't set (so the game runs offline-only without throwing)
+ * and logs warnings on failure rather than propagating — Convex outages must
+ * not break gameplay.
+ */
+export function safeFire(fn: () => Promise<unknown>): void {
+  if (!hasConvexUrl()) return;
+  try {
+    fn().catch((err) => console.warn('[convex] mutation failed:', err));
+  } catch (err) {
+    console.warn('[convex] mutation threw synchronously:', err);
+  }
+}

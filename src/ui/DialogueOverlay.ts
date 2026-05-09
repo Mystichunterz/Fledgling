@@ -8,6 +8,7 @@ import { subscribeDiary } from '../sim/diary';
 import { renderGlossed } from './glossRender';
 import { isDev } from '../engine/dev';
 import { DialogueDevConsole } from './DialogueDevConsole';
+import { safeFire, logDialogue, engineSceneToConvex } from '../integration';
 
 // Encode a frame array into surface text, capitalised + period-terminated like
 // a sentence. Failures here would crash the dialogue UI, so we trap and fall
@@ -224,6 +225,24 @@ export class DialogueOverlay {
     window.dispatchEvent(new CustomEvent('fledgling:encounter', {
       detail: { speaker: node.speaker, line: rendered, nodeId: node.id },
     }));
+
+    // Mirror to Convex dialogueLog so the dashboard shows live activity.
+    // Fire-and-forget; falls back silently if Convex is offline. Only emits
+    // when the current scene maps to a Convex Scene enum value (intro
+    // cutscene and unmapped scenes are skipped).
+    const convexScene = engineSceneToConvex(GameRegistry.currentScene ?? '');
+    if (convexScene) {
+      const speakerName = npcById(node.speaker).displayName;
+      safeFire(() =>
+        logDialogue({
+          speakerSlug: node.speaker,
+          speakerName,
+          line: rendered,
+          nodeId: node.id,
+          scene: convexScene,
+        }),
+      );
+    }
 
     this.paint(node, rendered);
   }

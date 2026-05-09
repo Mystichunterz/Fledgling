@@ -88,6 +88,19 @@ export default defineSchema(
       .index("by_speaker", ["speakerId"])
       .index("by_location", ["location"]),
 
+    // Live audit log of dialogue lines the player surfaces in-game. Distinct
+    // from `dialogueEvents` (which is for tick-driven NPC-to-NPC ambient lines
+    // and requires NPC foreign keys); this one is slug-based so it works
+    // before NPCs are seeded. Used to demonstrate real-time Convex streaming
+    // without coupling to the NPC seed.
+    dialogueLog: defineTable({
+      speakerSlug: v.string(),
+      speakerName: v.string(),
+      line: v.string(),
+      nodeId: v.string(),
+      scene: SCENE,
+    }),
+
     worldState: defineTable({
       currentTime: v.number(),
       tickIntervalMs: v.number(),

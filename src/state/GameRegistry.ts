@@ -1,7 +1,8 @@
-import type { ItemId } from './items';
+import { CRITICAL_ITEMS, type ItemId, type CriticalItemId } from './items';
 import type { Difficulty, LanguageSpec } from '../lang/language-spec';
 import { EXAMPLE_LANGUAGE } from '../lang/example-language';
 import { randomLanguage, randomSeedString } from '../lang/random-language';
+import { safeFire, collectItem } from '../integration';
 
 export interface GameRegistryShape {
   currentScene: string | null;
@@ -62,6 +63,9 @@ export function hasAllItems(): boolean {
 
 export function giveItem(item: ItemId): void {
   GameRegistry.itemsCollected.add(item);
+  if ((CRITICAL_ITEMS as readonly string[]).includes(item)) {
+    safeFire(() => collectItem(item as CriticalItemId));
+  }
 }
 
 export function removeItem(item: ItemId): void {
