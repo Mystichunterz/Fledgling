@@ -1,4 +1,6 @@
 import type { ItemId } from './items';
+import type { LanguageSpec } from '../lang/language-spec';
+import { EXAMPLE_LANGUAGE } from '../lang/example-language';
 
 export interface GameRegistryShape {
   currentScene: string | null;
@@ -8,6 +10,10 @@ export interface GameRegistryShape {
   worldHeight: number;
   itemsCollected: Set<ItemId>;
   beaconLit: boolean;
+  // Active conlang spec used to encode dialogue frames into surface text.
+  // Defaults to the hand-authored fixture (tovari); a language picker can
+  // swap this at runtime later.
+  language: LanguageSpec;
 }
 
 export const GameRegistry: GameRegistryShape = {
@@ -18,6 +24,7 @@ export const GameRegistry: GameRegistryShape = {
   worldHeight: 0,
   itemsCollected: new Set(),
   beaconLit: false,
+  language: EXAMPLE_LANGUAGE,
 };
 
 export function hasAllItems(): boolean {

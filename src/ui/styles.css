@@ -1270,3 +1270,30 @@ textarea.frame-dsl-input {
   font-size: 10px;
   letter-spacing: 0.12em;
 }
+
+/* ============================================================
+   English translation line (rough approximation under surface)
+   ============================================================ */
+
+.translation {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--paper-edge);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.translation-label {
+  font-family: var(--mono);
+  font-style: normal;
+  color: var(--ink-faint);
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.translation-text {
+  font-variation-settings: "opsz" 16, "SOFT" 50;
+}

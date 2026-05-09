@@ -45,15 +45,19 @@ const VERB_CONCEPTS = [
 ] as const;
 const ITEM_CONCEPTS = [
   "FLINT", "STICK", "LIGHTER", "BREAD", "WATER",
-  "WOOD", "OIL", "FRUIT", "PEBBLE", "JOURNAL", "LETTER", "FIRE",
+  "WOOD", "OIL", "FRUIT", "PEBBLE", "JOURNAL", "LETTER", "FIRE", "BOAT",
+  "ROPE", "BASKET",
 ] as const;
 const LOCATION_CONCEPTS = [
   "FOREST", "CAVE", "FORGE", "MEADOW",
   "BEACH", "VILLAGE", "HUT", "LIGHTHOUSE", "SHRINE", "HOME",
+  "WELL", "FIREPIT",
 ] as const;
 const ANIMATE_CONCEPTS = [
   "SMITH", "WOODSMAN",
   "PREDECESSOR", "BAKER", "FARMER", "GUARD", "CHILD", "SHRINE_KEEPER",
+  // NPC proper names — random-seeded languages give each NPC a generated stem.
+  "PEMI", "NARO", "LEMU", "TOKA", "SENU", "HALA",
 ] as const;
 const ABSTRACT_CONCEPTS = ["LEAVING", "STAYING"] as const;
 // Deictic pronouns the random language must realise. Keys correspond to

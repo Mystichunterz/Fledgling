@@ -1,6 +1,39 @@
-import type { DialogueTree, DialogueNode, PlayerOption, NodeSideEffect } from '../sim/dialogueTypes';
+import type { DialogueTree, DialogueNode, LineSegment, PlayerOption, NodeSideEffect } from '../sim/dialogueTypes';
 import { npcById } from '../sim/npcRoster';
 import { isFlagSet, setFlag } from '../state/dialogueFlags';
+import { GameRegistry } from '../state/GameRegistry';
+import { encodeFrame } from '../lang/encoder';
+import type { FilledFrame } from '../lang/frames';
+import { isDev } from '../engine/dev';
+import { DialogueDevConsole } from './DialogueDevConsole';
+
+// Encode a frame array into surface text, capitalised + period-terminated like
+// a sentence. Failures here would crash the dialogue UI, so we trap and fall
+// back to a marker — the english stays in the diary regardless.
+const encodeSurface = (frames: FilledFrame[]): string => {
+  try {
+    return frames.map(f => {
+      const s = encodeFrame(GameRegistry.language, f);
+      return s.charAt(0).toUpperCase() + s.slice(1) + '.';
+    }).join(' ');
+  } catch (err) {
+    console.warn('[DialogueOverlay] encode failed:', err);
+    return '';
+  }
+};
+
+// Speech segments display as text; stage segments drive sprite anims and never
+// surface as text. When a speech segment carries frames we encode them into the
+// active language; otherwise we fall back to the authored english.
+const renderLine = (segments: LineSegment[]): string =>
+  segments
+    .filter(s => s.kind === 'speech')
+    .map(s => {
+      if (s.kind !== 'speech') return '';
+      const surface = s.frames && s.frames.length > 0 ? encodeSurface(s.frames) : '';
+      return surface || s.english;
+    })
+    .join(' ');
 
 const applySideEffects = (effects?: NodeSideEffect[]) => {
   if (!effects) return;
@@ -22,6 +55,7 @@ export class DialogueOverlay {
   private currentNodeId: string | null = null;
   private onClose: (() => void) | null = null;
   private keyHandler: (ev: KeyboardEvent) => void;
+  private devConsole: DialogueDevConsole | null = null;
 
   constructor() {
     this.root = document.createElement('div');
@@ -79,12 +113,15 @@ export class DialogueOverlay {
       }
     };
     window.addEventListener('keydown', this.keyHandler, true);
+
+    if (isDev()) this.devConsole = new DialogueDevConsole();
   }
 
   open(tree: DialogueTree, rootId: string, onClose?: () => void) {
     this.currentTree = tree;
     this.onClose = onClose ?? null;
     this.root.style.display = 'block';
+    this.devConsole?.notifyDialogueOpened();
     this.renderNode(rootId);
   }
 
@@ -92,6 +129,7 @@ export class DialogueOverlay {
     this.root.style.display = 'none';
     this.currentTree = null;
     this.currentNodeId = null;
+    this.devConsole?.notifyDialogueClosed();
     const fn = this.onClose;
     this.onClose = null;
     fn?.();
@@ -107,15 +145,22 @@ export class DialogueOverlay {
     this.currentNodeId = nodeId;
     applySideEffects(node.sideEffects);
 
+    if (this.devConsole && this.currentTree) {
+      this.devConsole.update(this.currentTree, node, GameRegistry.language);
+    }
+
     const npc = npcById(node.speaker);
     this.speakerEl.textContent = npc.displayName;
 
-    // Encounter hook for the diary to subscribe to.
+    const rendered = renderLine(node.line);
+
+    // Encounter hook for the diary to subscribe to. Diary tokenises the
+    // displayed string, so we send the rendered surface, not the segment array.
     window.dispatchEvent(new CustomEvent('fledgling:encounter', {
-      detail: { speaker: node.speaker, line: node.line, nodeId: node.id },
+      detail: { speaker: node.speaker, line: rendered, nodeId: node.id },
     }));
 
-    this.lineEl.textContent = node.line;
+    this.lineEl.textContent = rendered;
 
     this.choicesEl.innerHTML = '';
     const visible = node.options.filter(o => !o.gatedBy || isFlagSet(o.gatedBy));
@@ -136,7 +181,18 @@ export class DialogueOverlay {
         btn.style.background = 'rgba(50,40,28,0.65)';
         btn.style.borderColor = '#5a4828';
       };
-      const label = choice.kind === 'utterance' ? `"${choice.text}"` : choice.text;
+      let label: string;
+      if (choice.kind === 'gesture') {
+        label = choice.english;
+      } else {
+        const surface = choice.frames && choice.frames.length > 0
+          ? encodeSurface(choice.frames)
+          : '';
+        // §8.2: utterance options should later overlay english as a hover hint
+        // until every word's anchor is known. For now we just display whichever
+        // surface exists — Telopa if framed, english otherwise.
+        label = `"${surface || choice.english}"`;
+      }
       btn.textContent = `${i + 1}. ${label}`;
       btn.onclick = () => this.pickChoice(choice);
       this.choicesEl.appendChild(btn);
@@ -157,6 +213,8 @@ export class DialogueOverlay {
 
   destroy() {
     window.removeEventListener('keydown', this.keyHandler, true);
+    this.devConsole?.destroy();
+    this.devConsole = null;
     this.root.remove();
   }
 }

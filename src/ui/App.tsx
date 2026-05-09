@@ -37,6 +37,7 @@ import {
   formatFrameText,
   parseFrameText,
 } from "../lang/frame-text.js";
+import { englishOf } from "../lang/english.js";
 
 const FRAME_LIST = Object.values(FRAMES);
 
@@ -77,13 +78,50 @@ const COMPOSE_EXAMPLES: { label: string; dsl: string }[] = [
 // Root
 // ============================================================
 
+// Decide what language the workbench boots into. URL params:
+//   ?lang=example                         use the canonical EXAMPLE_LANGUAGE
+//   ?seed=<string>                        random language with this seed
+//   ?difficulty=simple|full               difficulty tier (default: full)
+// With no params, mint a fresh random seed each load. Lets shareable URLs
+// pin a language while the default is "show me something new."
+interface InitialLanguage {
+  language: LanguageSpec;
+  seed: string;
+  difficulty: Difficulty;
+}
+
+function readInitialLanguage(): InitialLanguage {
+  if (typeof window === "undefined") {
+    return { language: EXAMPLE_LANGUAGE, seed: "", difficulty: "full" };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const difficulty: Difficulty =
+    params.get("difficulty") === "simple" ? "simple" : "full";
+  if (params.get("lang") === "example") {
+    return { language: EXAMPLE_LANGUAGE, seed: "", difficulty };
+  }
+  const seed = params.get("seed") ?? randomSeedString();
+  try {
+    return { language: randomLanguage(seed, difficulty), seed, difficulty };
+  } catch {
+    // Bad seed (or generator threw) — fall back to the example so the page
+    // still renders. The seed input still shows what was tried.
+    return { language: EXAMPLE_LANGUAGE, seed, difficulty };
+  }
+}
+
 export function App() {
-  const [L, setL] = useState<LanguageSpec>(EXAMPLE_LANGUAGE);
-  const [seed, setSeed] = useState<string>("");
-  const [difficulty, setDifficulty] = useState<Difficulty>("full");
-  const [parseInput, setParseInput] = useState<string>(() =>
-    encodeFrame(EXAMPLE_LANGUAGE, PARSE_SEED_FRAME),
-  );
+  const initial = useMemo(() => readInitialLanguage(), []);
+  const [L, setL] = useState<LanguageSpec>(initial.language);
+  const [seed, setSeed] = useState<string>(initial.seed);
+  const [difficulty, setDifficulty] = useState<Difficulty>(initial.difficulty);
+  const [parseInput, setParseInput] = useState<string>(() => {
+    try {
+      return encodeFrame(initial.language, PARSE_SEED_FRAME);
+    } catch {
+      return "";
+    }
+  });
 
   const installLanguage = (next: LanguageSpec) => {
     setL(next);
@@ -415,9 +453,71 @@ function ComposePanel() {
     updateFrame(() => defaultFrameFor(L, id));
   };
 
-  const setMood = (mood: "declarative" | "imperative") => {
-    if (mood === frame.mood) return;
-    updateFrame((f) => ({ ...f, mood }));
+  // Sentence type collapses (mood, polarQuestion, presence-of-unknown) into a
+  // single user-facing axis. The four states are mutually exclusive:
+  //   statement  — declarative, no question marker
+  //   polar      — yes/no question (polarQuestion=true; no "unknown" filler)
+  //   wh         — wh-question (exactly one role filled with "unknown")
+  //   command    — imperative (action frames only)
+  type SentenceType = "statement" | "polar" | "wh" | "command";
+  const hasUnknown = Object.values(frame.roles).some(isUnknown);
+  const currentSentence: SentenceType =
+    frame.mood === "imperative"
+      ? "command"
+      : hasUnknown
+        ? "wh"
+        : frame.polarQuestion
+          ? "polar"
+          : "statement";
+
+  const replaceUnknowns = (
+    f: FilledFrame,
+    spec: FrameSpec,
+  ): Record<string, RoleFiller> => {
+    const next: Record<string, RoleFiller> = { ...f.roles };
+    for (const r of spec.roles) {
+      if (next[r.name] === "unknown") {
+        next[r.name] = defaultFillerFor(L, r);
+      }
+    }
+    return next;
+  };
+
+  const setSentenceType = (next: SentenceType) => {
+    if (next === currentSentence) return;
+    updateFrame((f) => {
+      const fSpec = FRAMES[f.predicate]!;
+      const out: FilledFrame = { ...f };
+      delete out.polarQuestion;
+      out.mood = "declarative";
+      if (next === "command") {
+        if (fSpec.category !== "action") return f;
+        out.mood = "imperative";
+        out.roles = replaceUnknowns(f, fSpec);
+      } else if (next === "polar") {
+        out.polarQuestion = true;
+        out.roles = replaceUnknowns(f, fSpec);
+      } else if (next === "wh") {
+        // Make sure exactly one role is "unknown". If none are, mark the
+        // last role; if more than one (shouldn't happen via UI), keep just
+        // the last and reset the rest.
+        const unknownRoles = fSpec.roles.filter(
+          (r) => f.roles[r.name] === "unknown",
+        );
+        if (unknownRoles.length === 1) {
+          out.roles = { ...f.roles };
+        } else {
+          const cleared = replaceUnknowns(f, fSpec);
+          const last = fSpec.roles[fSpec.roles.length - 1]!;
+          cleared[last.name] = "unknown";
+          out.roles = cleared;
+        }
+      } else {
+        // statement
+        out.roles = replaceUnknowns(f, fSpec);
+      }
+      return out;
+    });
   };
 
   const setTense = (tense: "past" | "present" | "future") => {
@@ -510,29 +610,48 @@ function ComposePanel() {
 
       <div className="field compose-modifiers">
         <div className="modifier-group">
-          <div className="field-label">Mood</div>
+          <div className="field-label">Sentence</div>
           <div className="pills">
             <button
               className="pill"
               type="button"
-              aria-pressed={frame.mood === "declarative"}
-              onClick={() => setMood("declarative")}
+              aria-pressed={currentSentence === "statement"}
+              onClick={() => setSentenceType("statement")}
+              title="declarative · no question marker"
             >
-              declarative
+              statement
             </button>
             <button
               className="pill"
               type="button"
-              aria-pressed={frame.mood === "imperative"}
-              onClick={() => setMood("imperative")}
+              aria-pressed={currentSentence === "polar"}
+              onClick={() => setSentenceType("polar")}
+              title="yes/no question (polar)"
+            >
+              polar Q
+            </button>
+            <button
+              className="pill"
+              type="button"
+              aria-pressed={currentSentence === "wh"}
+              onClick={() => setSentenceType("wh")}
+              title="wh-question — one role becomes the wh-wildcard"
+            >
+              wh-Q
+            </button>
+            <button
+              className="pill"
+              type="button"
+              aria-pressed={currentSentence === "command"}
+              onClick={() => setSentenceType("command")}
               disabled={!isAction}
               title={
                 isAction
-                  ? undefined
+                  ? "imperative"
                   : "imperative requires an action frame"
               }
             >
-              imperative
+              command
             </button>
           </div>
         </div>
@@ -642,7 +761,7 @@ function ComposePanel() {
         </div>
       </div>
 
-      {gloss && <SurfaceOutput gloss={gloss} />}
+      {gloss && <SurfaceOutput gloss={gloss} frame={frame} />}
     </div>
   );
 }
@@ -735,7 +854,7 @@ function RoleEditor({
   );
 }
 
-function SurfaceOutput({ gloss }: { gloss: FrameGloss }) {
+function SurfaceOutput({ gloss, frame }: { gloss: FrameGloss; frame?: FilledFrame }) {
   const ref = useRef<HTMLDivElement>(null);
   const lastSurface = useRef(gloss.surface);
   useEffect(() => {
@@ -750,10 +869,41 @@ function SurfaceOutput({ gloss }: { gloss: FrameGloss }) {
     }
   }, [gloss.surface]);
 
+  let translation: string | null = null;
+  if (frame) {
+    try {
+      translation = englishOf(frame);
+    } catch {
+      translation = null;
+    }
+  }
+
   return (
     <div className="surface" ref={ref}>
       <div className="surface-label">surface · interlinear</div>
       <InterlinearGloss words={gloss.words} />
+      {translation && (
+        <div className="translation">
+          <span className="translation-label">≈</span>{" "}
+          <span className="translation-text">{translation}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ParseTranslation({ frame }: { frame: FilledFrame }) {
+  let translation: string | null = null;
+  try {
+    translation = englishOf(frame);
+  } catch {
+    translation = null;
+  }
+  if (!translation) return null;
+  return (
+    <div className="translation">
+      <span className="translation-label">≈</span>{" "}
+      <span className="translation-text">{translation}</span>
     </div>
   );
 }
@@ -855,6 +1005,7 @@ function ParsePanel({
           <div className="surface" style={{ marginTop: 22 }}>
             <div className="surface-label">interlinear</div>
             <InterlinearGloss words={parsed.gloss.words} />
+            <ParseTranslation frame={parsed.frame} />
           </div>
           <div className="surface" style={{ marginTop: 14 }}>
             <div className="surface-label">frame · DSL</div>
@@ -872,7 +1023,8 @@ function ParsePanel({
 function FrameDisplay({ frame, depth = 0 }: { frame: FilledFrame; depth?: number }) {
   const L = useLanguage();
   const spec = FRAMES[frame.predicate]!;
-  const isQuestion = Object.values(frame.roles).some(isUnknown);
+  const isWh = Object.values(frame.roles).some(isUnknown);
+  const isPolar = frame.polarQuestion === true;
 
   return (
     <div className={`frame-display ${depth > 0 ? "nested" : ""}`}>
@@ -881,7 +1033,8 @@ function FrameDisplay({ frame, depth = 0 }: { frame: FilledFrame; depth?: number
         <div className="frame-val">
           <span className="predicate">{frame.predicate}</span>
           <span className="badge">{frame.mood}</span>
-          {isQuestion && <span className="badge q">interrogative</span>}
+          {isWh && <span className="badge q">wh-question</span>}
+          {isPolar && <span className="badge q">polar question</span>}
           {frame.tense && frame.tense !== "present" && (
             <span className="badge tense">{frame.tense}</span>
           )}

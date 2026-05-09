@@ -1,6 +1,12 @@
 import { decodeText, ParseError } from "../lang/decoder.js";
 import { encodeFrame } from "../lang/encoder.js";
-import { FilledFrame } from "../lang/frames.js";
+import {
+  FilledFrame,
+  RoleFiller,
+  isEntityRef,
+  isNestedFrame,
+  isPronoun,
+} from "../lang/frames.js";
 import { Difficulty } from "../lang/language-spec.js";
 import {
   customLanguageNames,
@@ -208,8 +214,207 @@ function renderNPCs(actingId?: string): void {
   }
 }
 
+// ─── English gloss ─────────────────────────────────────────────────
+// Rough word-for-word English rendering of a FilledFrame. Not real
+// translation — just enough to read a stream entry without thinking
+// about frame structure. Resolves NPC ids to display names; everything
+// else is lowercased ("bread", "meadow"). Tense = past/present/future,
+// imperative gets "!" and an addressee prefix when known.
+
+function npcDisplayName(id: string): string | null {
+  const n = state.npcs.find((n) => n.id === id);
+  return n ? n.displayName : null;
+}
+
+// `selfNP` and `listenerNP` are how the deictic pronouns "self" and
+// "listener" should be rendered at this scope. At the top level we
+// pass the decision-owner's display name as selfNP so action narrations
+// read "Henu eats bread", not "I eats bread". Inside a SAY's nested
+// content frame we pass "I"/"you" so quoted speech reads naturally.
+type GlossCtx = { selfNP?: string; listenerNP?: string };
+
+function englishNP(
+  filler: RoleFiller,
+  ctx: GlossCtx,
+  opts?: { whFor?: "ANIMATE" | "ITEM" | "LOCATION" },
+): string {
+  if (filler === "self") return ctx.selfNP ?? "I";
+  if (filler === "listener") return ctx.listenerNP ?? "you";
+  if (filler === "reference") return "they";
+  if (filler === "unknown") {
+    switch (opts?.whFor) {
+      case "ANIMATE": return "who";
+      case "LOCATION": return "where";
+      case "ITEM":
+      default: return "what";
+    }
+  }
+  if (isPronoun(filler)) return String(filler);
+  if (isNestedFrame(filler)) return `"${englishGloss(filler.frame, ctx)}"`;
+  if (isEntityRef(filler)) {
+    if (filler.type === "ANIMATE") {
+      return npcDisplayName(filler.conceptId) ?? filler.conceptId.toLowerCase();
+    }
+    const base = filler.conceptId.toLowerCase();
+    return filler.number === "pl" ? `${base}s` : base;
+  }
+  return "?";
+}
+
+// "I"/"you"/"they"/proper-name take a bare verb in the present;
+// 3rd-person singular nouns take -s. Past/future use canonical forms.
+function conjugate(
+  np: string,
+  forms: { present3sg: string; presentBare: string; past: string; future: string },
+  tense?: "past" | "present" | "future",
+): string {
+  const t = tense ?? "present";
+  if (t === "past") return forms.past;
+  if (t === "future") return forms.future;
+  const bare = np === "I" || np === "you" || np === "they";
+  return bare ? forms.presentBare : forms.present3sg;
+}
+
+const VERB_FORMS: Record<
+  string,
+  { present3sg: string; presentBare: string; past: string; future: string }
+> = {
+  EAT:   { present3sg: "eats",   presentBare: "eat",   past: "ate",     future: "will eat" },
+  MOVE:  { present3sg: "goes",   presentBare: "go",    past: "went",    future: "will go" },
+  TAKE:  { present3sg: "takes",  presentBare: "take",  past: "took",    future: "will take" },
+  SEE:   { present3sg: "sees",   presentBare: "see",   past: "saw",     future: "will see" },
+  WANT:  { present3sg: "wants",  presentBare: "want",  past: "wanted",  future: "will want" },
+  HAVE:  { present3sg: "has",    presentBare: "have",  past: "had",     future: "will have" },
+  GIVE:  { present3sg: "gives",  presentBare: "give",  past: "gave",    future: "will give" },
+  MAKE:  { present3sg: "makes",  presentBare: "make",  past: "made",    future: "will make" },
+  SAY:   { present3sg: "says",   presentBare: "say",   past: "said",    future: "will say" },
+  BE_AT: { present3sg: "is",     presentBare: "are",   past: "was",     future: "will be" },
+};
+
+function cap(s: string): string {
+  return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1);
+}
+
+// At the top level, pass `{ selfNP: npc.displayName }` so the speaker's
+// own deictic refs render as their name in narration ("Henu eats bread").
+// Inside a SAY's nested content the perspective shifts to 1st/2nd
+// person ("I ate bread" / "I see you") — that's set up automatically by
+// the SAY case below.
+export function englishGloss(frame: FilledFrame, ctx: GlossCtx = {}): string {
+  const tense = frame.tense ?? "present";
+  const isImp = frame.mood === "imperative";
+  const neg = frame.negated ? " not" : "";
+
+  const conj = (np: string, predicate: string) => {
+    const forms = VERB_FORMS[predicate];
+    if (!forms) return predicate.toLowerCase();
+    return conjugate(np, forms, tense);
+  };
+
+  const r = frame.roles;
+
+  const buildSentence = (subject: string, verbAndRest: string): string => {
+    if (isImp) return `${verbAndRest}!`;
+    return `${cap(subject)} ${verbAndRest}`;
+  };
+
+  switch (frame.predicate) {
+    case "EAT": {
+      const subj = englishNP(r.agent!, ctx);
+      const obj = englishNP(r.patient!, ctx, { whFor: "ITEM" });
+      return buildSentence(subj, `${conj(subj, "EAT")}${neg} ${obj}`);
+    }
+    case "TAKE": {
+      const subj = englishNP(r.agent!, ctx);
+      const obj = englishNP(r.theme!, ctx, { whFor: "ITEM" });
+      return buildSentence(subj, `${conj(subj, "TAKE")}${neg} ${obj}`);
+    }
+    case "MOVE": {
+      const subj = englishNP(r.agent!, ctx);
+      const dest = englishNP(r.destination!, ctx, { whFor: "LOCATION" });
+      const where = dest === "where" ? "where" : `to ${dest}`;
+      return buildSentence(subj, `${conj(subj, "MOVE")}${neg} ${where}`);
+    }
+    case "SEE": {
+      const subj = englishNP(r.viewer!, ctx);
+      const obj = englishNP(r.target!, ctx, { whFor: "ITEM" });
+      return buildSentence(subj, `${conj(subj, "SEE")}${neg} ${obj}`);
+    }
+    case "WANT": {
+      const subj = englishNP(r.wanter!, ctx);
+      const obj = englishNP(r.desired!, ctx, { whFor: "ITEM" });
+      return buildSentence(subj, `${conj(subj, "WANT")}${neg} ${obj}`);
+    }
+    case "HAVE": {
+      const subj = englishNP(r.owner!, ctx);
+      const obj = englishNP(r.theme!, ctx, { whFor: "ITEM" });
+      return buildSentence(subj, `${conj(subj, "HAVE")}${neg} ${obj}`);
+    }
+    case "GIVE": {
+      const subj = englishNP(r.agent!, ctx);
+      const obj = englishNP(r.theme!, ctx, { whFor: "ITEM" });
+      const rec = englishNP(r.recipient!, ctx, { whFor: "ANIMATE" });
+      return buildSentence(subj, `${conj(subj, "GIVE")}${neg} ${obj} to ${rec}`);
+    }
+    case "MAKE": {
+      const subj = englishNP(r.agent!, ctx);
+      const obj = englishNP(r.patient!, ctx, { whFor: "ITEM" });
+      const src = r.source ? ` from ${englishNP(r.source, ctx, { whFor: "ITEM" })}` : "";
+      return buildSentence(subj, `${conj(subj, "MAKE")}${neg} ${obj}${src}`);
+    }
+    case "BE_AT": {
+      const fig = englishNP(r.figure!, ctx, { whFor: "ITEM" });
+      const grd = r.ground;
+      if (grd === "unknown") {
+        const v = conj(fig, "BE_AT");
+        return `where ${v}${neg} ${fig}?`;
+      }
+      const grdStr = englishNP(grd!, ctx, { whFor: "LOCATION" });
+      return `${cap(fig)} ${conj(fig, "BE_AT")}${neg} in ${grdStr}`;
+    }
+    case "SAY": {
+      // Outer narration: render speaker/recipient using the OUTER ctx
+      // (so "self" → npc display name, "listener" → addressee name).
+      // Then for the nested quoted content we shift to 1st/2nd person —
+      // "self" → "I", "listener" → "you" — which is the natural way to
+      // read reported speech.
+      const subj = englishNP(r.speaker!, ctx);
+      const rec = englishNP(r.recipient!, ctx, { whFor: "ANIMATE" });
+      const innerCtx: GlossCtx = { selfNP: "I", listenerNP: "you" };
+      const content = r.content!;
+      const what = isNestedFrame(content)
+        ? `"${englishGloss(content.frame, innerCtx)}"`
+        : englishNP(content, ctx, { whFor: "ITEM" });
+      const verb = conj(subj, "SAY");
+      return `${cap(subj)} ${verb}${neg} to ${rec}: ${what}`;
+    }
+    default:
+      return frame.predicate.toLowerCase();
+  }
+}
+
+// Wraps the frame JSON in a collapsed <details> element. The footer
+// "show schema" toggle hides the entire details element when off.
+function buildSchemaDetails(frame: FilledFrame): HTMLDetailsElement {
+  const d = document.createElement("details");
+  d.className = "schema-details";
+  const s = document.createElement("summary");
+  s.textContent = "schema";
+  const pre = document.createElement("pre");
+  pre.className = "schema";
+  pre.textContent = JSON.stringify(frame, null, 2);
+  d.appendChild(s);
+  d.appendChild(pre);
+  return d;
+}
+
 // ─── Conlang stream ────────────────────────────────────────────────
 function appendTick(tickNum: number, entries: TickEntry[]): void {
+  // Silent tick — every NPC stayed quiet (alone with no need / nothing
+  // to say). Skip the divider entirely so the stream stays a record of
+  // actual speech and visible action.
+  if (entries.length === 0) return;
+
   const div = document.createElement("div");
   div.className = "tick-divider";
   div.textContent = `tick ${tickNum}`;
@@ -224,6 +429,9 @@ function appendTick(tickNum: number, entries: TickEntry[]): void {
       ? `<span class="frame-tag tense">${decision.frame.tense}</span>`
       : "";
 
+    // Top-level narration: render this NPC's deictic "self" as their
+    // display name so the gloss reads "Henu eats bread", not "I eats bread".
+    const gloss = englishGloss(decision.frame, { selfNP: npc.displayName });
     u.innerHTML = `
       <div class="who">
         <span class="name">${npc.displayName}</span>
@@ -231,11 +439,9 @@ function appendTick(tickNum: number, entries: TickEntry[]): void {
         ${tenseTag}
       </div>
       <div class="conlang"><span class="quote">«</span>${conlang}<span class="quote">»</span></div>
+      <div class="gloss">${escapeHtml(gloss)}</div>
     `;
-    const schema = document.createElement("pre");
-    schema.className = "schema";
-    schema.textContent = JSON.stringify(decision.frame, null, 2);
-    u.appendChild(schema);
+    u.appendChild(buildSchemaDetails(decision.frame));
     els.stream.appendChild(u);
   }
 
@@ -314,6 +520,14 @@ function appendPlayerUtterance(
   // changed (case agreement, particle position, etc.).
   const canonical = frame ? encodeFrame(LANG, frame) : null;
 
+  // Player perspective: "self" is the player ("I") and "listener" is the
+  // addressee NPC if one is selected (so "take bread!" glosses to
+  // "Tova, take bread!" via listenerNP, not "you, take bread!").
+  const glossCtx: GlossCtx = { selfNP: "I" };
+  if (status.steered) glossCtx.listenerNP = status.steered.displayName;
+  const glossLine = frame
+    ? `<div class="gloss">${escapeHtml(englishGloss(frame, glossCtx))}</div>`
+    : "";
   u.innerHTML = `
     <div class="who">
       <span class="name">player</span>
@@ -323,6 +537,7 @@ function appendPlayerUtterance(
       ${steerTag}
     </div>
     <div class="conlang"><span class="quote">«</span>${escapeHtml(rawText)}<span class="quote">»</span></div>
+    ${glossLine}
   `;
 
   if (canonical && canonical.toLowerCase() !== rawText.trim().toLowerCase()) {
@@ -341,12 +556,7 @@ function appendPlayerUtterance(
     u.appendChild(err);
   }
 
-  if (frame) {
-    const schema = document.createElement("pre");
-    schema.className = "schema";
-    schema.textContent = JSON.stringify(frame, null, 2);
-    u.appendChild(schema);
-  }
+  if (frame) u.appendChild(buildSchemaDetails(frame));
 
   els.stream.appendChild(u);
   els.stream.scrollTop = els.stream.scrollHeight;

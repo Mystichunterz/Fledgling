@@ -45,6 +45,9 @@ export const EXAMPLE_LANGUAGE: LanguageSpec = {
     JOURNAL: { stem: "topi",  category: "noun", semanticType: "ITEM" },
     LETTER:  { stem: "haku",  category: "noun", semanticType: "ITEM" },
     FIRE:    { stem: "fero",  category: "noun", semanticType: "ITEM" },
+    BOAT:    { stem: "vona",  category: "noun", semanticType: "ITEM" },
+    ROPE:    { stem: "loka",  category: "noun", semanticType: "ITEM" },
+    BASKET:  { stem: "neba",  category: "noun", semanticType: "ITEM" },
 
     // Locations — original set
     FOREST: { stem: "luva",   category: "noun", semanticType: "LOCATION" },
@@ -58,6 +61,8 @@ export const EXAMPLE_LANGUAGE: LanguageSpec = {
     LIGHTHOUSE: { stem: "tora",  category: "noun", semanticType: "LOCATION" },
     SHRINE:     { stem: "vesa",  category: "noun", semanticType: "LOCATION" },
     HOME:       { stem: "duna",  category: "noun", semanticType: "LOCATION" },
+    WELL:       { stem: "ruka",  category: "noun", semanticType: "LOCATION" },
+    FIREPIT:    { stem: "boru",  category: "noun", semanticType: "LOCATION" },
 
     // NPC types / animates — original set
     SMITH:    { stem: "tova", category: "noun", semanticType: "ANIMATE" },
@@ -69,6 +74,16 @@ export const EXAMPLE_LANGUAGE: LanguageSpec = {
     GUARD:          { stem: "soka", category: "noun", semanticType: "ANIMATE" },
     CHILD:          { stem: "pino", category: "noun", semanticType: "ANIMATE" },
     SHRINE_KEEPER:  { stem: "halu", category: "noun", semanticType: "ANIMATE" },
+    // NPC proper names. Stems are language-internal (not transliterations of
+    // English) so the player learns them as Telopa words. The engine still
+    // shows the literal NPC name above the sprite via npcRoster.displayName;
+    // dialogue surface uses these stems.
+    PEMI:           { stem: "pemi", category: "noun", semanticType: "ANIMATE" },
+    NARO:           { stem: "naru", category: "noun", semanticType: "ANIMATE" },
+    LEMU:           { stem: "lemo", category: "noun", semanticType: "ANIMATE" },
+    TOKA:           { stem: "toka", category: "noun", semanticType: "ANIMATE" },
+    SENU:           { stem: "senu", category: "noun", semanticType: "ANIMATE" },
+    HALA:           { stem: "hala", category: "noun", semanticType: "ANIMATE" },
 
     // Abstract qualities / properties (ABSTRACT semantic type)
     GOOD:    { stem: "tama", category: "noun", semanticType: "ABSTRACT" },

@@ -337,6 +337,41 @@
         margin: 0 6px;
       }
 
+      .utter .gloss {
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 13px;
+        color: var(--ink-dim);
+        margin: 2px 0 4px;
+        line-height: 1.4;
+      }
+      .utter .schema-details {
+        margin-top: 4px;
+      }
+      .utter .schema-details > summary {
+        list-style: none;
+        cursor: pointer;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--ink-faint);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 2px 0;
+        user-select: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .utter .schema-details > summary::-webkit-details-marker { display: none; }
+      .utter .schema-details > summary::before {
+        content: "▸";
+        display: inline-block;
+        transition: transform 120ms;
+        font-size: 9px;
+        color: var(--ink-faint);
+      }
+      .utter .schema-details[open] > summary::before { transform: rotate(90deg); }
+      .utter .schema-details > summary:hover { color: var(--ink-dim); }
       .utter .schema {
         font-family: var(--mono);
         font-size: 11px;
@@ -409,7 +444,7 @@
       }
       ::-webkit-scrollbar-thumb:hover { background: #2f2f5a; }
 
-      .stream.no-schema .schema { display: none; }
+      .stream.no-schema .schema-details { display: none; }
 
       /* ─── Player command bar ─────────────────────────────────── */
       .cmd {

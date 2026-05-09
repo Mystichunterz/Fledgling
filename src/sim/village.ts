@@ -81,18 +81,43 @@ export class NPC {
 
 export interface Decision {
   frame: FilledFrame;
+  // When true, the decision still mutates state via apply() but is omitted
+  // from tickAll's output — i.e. the NPC acts (or just exists) silently and
+  // produces no stream entry. Used for alone-and-idle ticks where the NPC
+  // has no one to speak to: no monologues, no random observations.
+  silent?: boolean;
   apply(world: World, npc: NPC): void;
 }
 
+// A no-op silent decision. The frame is a placeholder (BE_AT self in
+// current location) — never rendered because tickAll filters silent
+// entries out of its output.
+function silentStay(npc: NPC): Decision {
+  return {
+    frame: {
+      predicate: "BE_AT",
+      mood: "declarative",
+      roles: {
+        figure: ref("ANIMATE", npc.id),
+        ground: ref("LOCATION", npc.location),
+      },
+    },
+    silent: true,
+    apply() {},
+  };
+}
+
 // Build a SAY frame wrapping `inner`, addressed from `speaker` to
-// `audience`. Used by every dialogue branch below — saves repeating the
-// outer scaffold five times.
-function sayTo(speaker: NPC, audience: NPC, inner: FilledFrame): FilledFrame {
+// `audience`. The speaker slot uses the "self" pronoun (1st-person
+// morphology in the conlang); the recipient slot is kept as an ANIMATE
+// ref so routeSpeech() can identify who's being addressed without
+// needing extra deictic context.
+function sayTo(_speaker: NPC, audience: NPC, inner: FilledFrame): FilledFrame {
   return {
     predicate: "SAY",
     mood: "declarative",
     roles: {
-      speaker: ref("ANIMATE", speaker.id),
+      speaker: "self",
       recipient: ref("ANIMATE", audience.id),
       content: { kind: "frame", frame: inner },
     },
@@ -138,6 +163,7 @@ function tryRespond(
   }
 
   // 2. Heard "I want X". If we're carrying X, offer it: "I have X".
+  //    Owner = "self" (the responder is referring to themselves).
   if (inner.predicate === "WANT") {
     const desired = inner.roles.desired;
     if (desired && !isPronoun(desired) && isEntityRef(desired) && desired.type === "ITEM") {
@@ -147,7 +173,7 @@ function tryRespond(
           predicate: "HAVE",
           mood: "declarative",
           roles: {
-            owner: ref("ANIMATE", npc.id),
+            owner: "self",
             theme: ref("ITEM", item),
           },
         };
@@ -158,14 +184,15 @@ function tryRespond(
 
   // 3. Heard a past-tense boast ("I ate the bread"). Acknowledge by
   //    saying you see them — short, terminal, doesn't trigger a reply
-  //    loop because tryRespond ignores SEE-acks.
+  //    loop because tryRespond ignores SEE-acks. Both viewer and
+  //    target are deictic: "I see you".
   if (inner.predicate === "EAT" && inner.tense === "past") {
     const ack: FilledFrame = {
       predicate: "SEE",
       mood: "declarative",
       roles: {
-        viewer: ref("ANIMATE", npc.id),
-        target: ref("ANIMATE", audience.id),
+        viewer: "self",
+        target: "listener",
       },
     };
     return { frame: sayTo(npc, audience, ack), apply() {} };
@@ -194,25 +221,20 @@ export function decide(world: World, npc: NPC, others: NPC[]): Decision {
     );
     if (audience && Math.random() < 0.6) {
       const eaten = npc.lastEaten;
+      // The boaster is talking about themselves: agent = "self"
+      // ("I ate the bread"). The outer SAY uses the same scaffold as
+      // sayTo() — speaker is "self", recipient is the audience NPC.
       const inner: FilledFrame = {
         predicate: "EAT",
         mood: "declarative",
         tense: "past",
         roles: {
-          agent: ref("ANIMATE", npc.id),
+          agent: "self",
           patient: ref("ITEM", eaten),
         },
       };
       return {
-        frame: {
-          predicate: "SAY",
-          mood: "declarative",
-          roles: {
-            speaker: ref("ANIMATE", npc.id),
-            recipient: ref("ANIMATE", audience.id),
-            content: { kind: "frame", frame: inner },
-          },
-        },
+        frame: sayTo(npc, audience, inner),
         apply(_w, n) {
           n.lastEaten = null;
         },
@@ -223,64 +245,45 @@ export function decide(world: World, npc: NPC, others: NPC[]): Decision {
 
   const need = npc.pressingNeed();
   if (need === null) {
-    // 2. Idle observation. Prefer noticing companions, then items.
-    const here = others.find(
+    // 2. Idle. Only speak if there's someone in the room to address —
+    //    otherwise stay silent (no random "I see meadow" monologues).
+    //    With a companion present, sometimes initiate small talk by
+    //    saying "I see you" wrapped in a SAY directed at them.
+    const audience = others.find(
       (o) => o !== npc && o.location === npc.location,
     );
-    if (here) {
-      return {
-        frame: {
-          predicate: "SEE",
-          mood: "declarative",
-          roles: {
-            viewer: ref("ANIMATE", npc.id),
-            target: ref("ANIMATE", here.id),
-          },
-        },
-        apply() {},
-      };
-    }
-    const visible = world.itemsAt[npc.location];
-    if (visible.length > 0) {
-      const it = visible[0]!;
-      return {
-        frame: {
-          predicate: "SEE",
-          mood: "declarative",
-          roles: {
-            viewer: ref("ANIMATE", npc.id),
-            target: ref("ITEM", it),
-          },
-        },
-        apply() {},
-      };
-    }
-    return {
-      frame: {
-        predicate: "BE_AT",
+    if (audience && Math.random() < 0.45) {
+      // Small talk: "I see you". Both deictic — viewer is the speaker
+      // and target is the addressee.
+      const inner: FilledFrame = {
+        predicate: "SEE",
         mood: "declarative",
         roles: {
-          figure: ref("ANIMATE", npc.id),
-          ground: ref("LOCATION", npc.location),
+          viewer: "self",
+          target: "listener",
         },
-      },
-      apply() {},
-    };
+      };
+      return { frame: sayTo(npc, audience, inner), apply() {} };
+    }
+    return silentStay(npc);
   }
 
   const item = SATIATES[need];
 
-  // 3. Already carrying it → consume.
+  // 3. Already carrying it → consume. Physical action, not speech, so
+  //    the decision is silent — the stream stays a dialogue transcript;
+  //    the sidebar reflects the inventory/needs change.
   if (npc.inventory.has(item)) {
     return {
       frame: {
         predicate: "EAT",
         mood: "declarative",
         roles: {
-          agent: ref("ANIMATE", npc.id),
+          agent: "self",
           patient: ref("ITEM", item),
         },
       },
+      silent: true,
       apply(_w, n) {
         n.inventory.delete(item);
         if (need === "hunger") n.hunger = Math.max(0, n.hunger - 70);
@@ -290,7 +293,8 @@ export function decide(world: World, npc: NPC, others: NPC[]): Decision {
     };
   }
 
-  // 4. At a location holding it → take.
+  // 4. At a location holding it → take. Same reasoning: physical
+  //    action, silent, sidebar reflects the inventory pickup.
   const hereItems = world.itemsAt[npc.location];
   if (hereItems.includes(item)) {
     return {
@@ -298,10 +302,11 @@ export function decide(world: World, npc: NPC, others: NPC[]): Decision {
         predicate: "TAKE",
         mood: "declarative",
         roles: {
-          agent: ref("ANIMATE", npc.id),
+          agent: "self",
           theme: ref("ITEM", item),
         },
       },
+      silent: true,
       apply(w, n) {
         const list = w.itemsAt[n.location];
         const idx = list.indexOf(item);
@@ -332,33 +337,44 @@ export function decide(world: World, npc: NPC, others: NPC[]): Decision {
       };
       return { frame: sayTo(npc, companion, question), apply() {} };
     }
+    // Walking is a physical action, not speech — silent. The sidebar's
+    // location chip reflects the move.
     return {
       frame: {
         predicate: "MOVE",
         mood: "declarative",
         roles: {
-          agent: ref("ANIMATE", npc.id),
+          agent: "self",
           destination: ref("LOCATION", home),
         },
       },
+      silent: true,
       apply(_w, n) {
         n.location = home;
       },
     };
   }
 
-  // 6. We're at the right place but it's empty — declare the want.
-  return {
-    frame: {
-      predicate: "WANT",
-      mood: "declarative",
-      roles: {
-        wanter: ref("ANIMATE", npc.id),
-        desired: ref("ITEM", item),
-      },
+  // 6. We're at the right place but it's empty. If a companion is here,
+  //    voice the desire to them ("I want bread") so they might hand one
+  //    over via the WANT-response branch in tryRespond. Otherwise stay
+  //    silent — no monologuing about wanting things to an empty room.
+  //    Wanter = "self" so the conlang renders 1st-person.
+  const wantFrame: FilledFrame = {
+    predicate: "WANT",
+    mood: "declarative",
+    roles: {
+      wanter: "self",
+      desired: ref("ITEM", item),
     },
-    apply() {},
   };
+  const audience = others.find(
+    (o) => o !== npc && o.location === npc.location,
+  );
+  if (audience) {
+    return { frame: sayTo(npc, audience, wantFrame), apply() {} };
+  }
+  return silentStay(npc);
 }
 
 // Refill empty home items with some probability so the world doesn't
@@ -435,7 +451,10 @@ export function tickAll(
     const override = overrides?.get(npc.id);
     if (override) overrides!.delete(npc.id);
     const decision = override ?? decide(world, npc, npcs);
-    out.push({ npc, decision });
+    // Silent decisions still mutate state via apply() but don't appear
+    // in the stream — they're how an alone-and-idle NPC's tick passes
+    // without producing a phantom utterance.
+    if (!decision.silent) out.push({ npc, decision });
     decision.apply(world, npc);
     // Route AFTER apply so any state changes the SAY caused (e.g.
     // clearing lastEaten) land first. This lets the same tick produce
@@ -490,6 +509,10 @@ export function decisionFromImperative(
   const agent = resolveAnimate(frame.roles.agent, addressee, npcs);
   if (!agent || agent.id !== addressee.id) return null;
 
+  // Player-driven actions are silent: the player already sees their own
+  // utterance in the command bar (with a "→ Tova" steer tag), and the
+  // NPC's compliance is visible in the sidebar (location/inventory/needs).
+  // No need for a second stream entry from the NPC's perspective.
   switch (frame.predicate) {
     case "MOVE": {
       const destId = entityId(frame.roles.destination);
@@ -498,6 +521,7 @@ export function decisionFromImperative(
       const dest = destId as LocationId;
       return {
         frame,
+        silent: true,
         apply(_w, n) {
           n.location = dest;
         },
@@ -509,6 +533,7 @@ export function decisionFromImperative(
       const item = itemId as ItemId;
       return {
         frame,
+        silent: true,
         apply(w, n) {
           const here = w.itemsAt[n.location];
           const idx = here.indexOf(item);
@@ -516,9 +541,6 @@ export function decisionFromImperative(
             here.splice(idx, 1);
             n.inventory.add(item);
           }
-          // If the item isn't here, the imperative still narrates — the
-          // NPC "tries" but nothing changes. This keeps the stream honest
-          // about player commands that don't pan out.
         },
       };
     }
@@ -526,9 +548,9 @@ export function decisionFromImperative(
       const itemId = entityId(frame.roles.patient);
       if (!itemId) return null;
       const item = itemId as ItemId;
-      // Sanity: only consumables satisfy needs. STICK is a no-op.
       return {
         frame,
+        silent: true,
         apply(_w, n) {
           if (!n.inventory.has(item)) return;
           n.inventory.delete(item);

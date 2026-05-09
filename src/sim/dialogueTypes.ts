@@ -1,4 +1,8 @@
 // v3 dialogue contract — see app/agents/story-dialogue-trees.md §A.
+// v3.1 (2026-05-09): canonical authoring is FilledFrame[]; the renderer encodes
+// each speech segment into the active language's surface form per §8.2.
+
+import type { FilledFrame } from '../lang/frames';
 
 export type NpcId = 'pemi' | 'naro' | 'lemu' | 'toka' | 'senu' | 'hala';
 
@@ -32,24 +36,44 @@ export interface NodeTrigger {
   excludes?: StateFlag[];
 }
 
+// A node's `line` is a sequence of segments.
+//
+// Speech segments display as the NPC's spoken text. When `frames` is present
+// the renderer encodes each frame via encodeFrame (lang/encoder) and emits the
+// concatenated Telopa surface — that's the §8.2 contract. When `frames` is
+// absent, the renderer falls back to `english` verbatim. The fallback path
+// exists so trees can be migrated incrementally; once Pemi/Naro are framed,
+// Lemu/Toka/Senu/Hala stay english-only until their turn.
+//
+// Stage segments are English directives (sprite anim cues, scene beats); they
+// are never displayed as text and never reach the diary.
+export type LineSegment =
+  | { kind: 'speech'; english: string; frames?: FilledFrame[] }
+  | { kind: 'stage'; text: string };
+
 export interface PlayerOption {
-  text: string;
-  // Utterances render quoted (would be Telopa once T11 lands); gestures render
-  // italicised English (player-sprite directives, never translated).
+  // English label — the canonical surface for gestures, the §8.2
+  // first-encounter overlay on utterance options, and the fallback when
+  // `frames` is absent (incremental-migration escape hatch).
+  english: string;
+  // Present for utterances that have been framed. Renderer encodes each frame
+  // and concatenates for the Telopa surface. Omitted for gestures and for
+  // unmigrated utterance options (which render as plain English).
+  frames?: FilledFrame[];
   kind: 'utterance' | 'gesture';
   react: AnimKey;             // NPC reaction played after pick, before next node
   next: string | 'END';
-  gatedBy?: StateFlag;        // option hidden unless flag is set
+  gatedBy?: StateFlag;         // option hidden unless flag is set
 }
 
 export interface DialogueNode {
-  id: string;                 // NPC_PURPOSE_INDEX, e.g. 'PEM_BEACH_INTRO'
+  id: string;                  // NPC_PURPOSE_INDEX, e.g. 'PEM_BEACH_INTRO'
   speaker: NpcId;
-  line: string;               // English authoring layer
+  line: LineSegment[];
   options: PlayerOption[];
-  stockLine?: boolean;        // true for Hala's Phase D climax fallback pool
+  stockLine?: boolean;         // true for Hala's Phase D climax fallback pool
   sideEffects?: NodeSideEffect[]; // fire on node entry
-  trigger?: NodeTrigger;      // entry condition
+  trigger?: NodeTrigger;       // entry condition
 }
 
 export interface DialogueTree {
