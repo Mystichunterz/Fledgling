@@ -4,13 +4,6 @@ import { _debugTransitionState, _debugResetTransition } from './engine/transitio
 import { GameRegistry } from './state/GameRegistry';
 import { SceneKeys } from './assets/keys';
 import { spawnNpcsForScene } from './sim/spawnNpcs';
-import { installHandoverListener } from './state/handovers';
-import { initDiary } from './sim/diary';
-import { DiaryOverlay } from './ui/DiaryOverlay';
-
-installHandoverListener();
-initDiary();
-new DiaryOverlay();
 
 const game = new Phaser.Game(gameConfig);
 
