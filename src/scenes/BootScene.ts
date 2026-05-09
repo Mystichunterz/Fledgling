@@ -37,27 +37,20 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // The player spritesheet's row 0 (idle) has ~26 px of empty padding
-    // above the head. Rows 1-5 (walk/nod/puzzled/frown/laugh) have the
-    // character filling the cell with no head gap. So shift only row 0's
-    // frames down — applying the shift globally would decapitate every
-    // animated frame. Frames are indexed 0-47, 8 per row, top-to-bottom.
-    const FRAMES_PER_ROW = 8;
-    const PER_ROW_TOP_TRIM = [26, 0, 0, 0, 0, 0];
+    // Every cell in the player spritesheet is misaligned: the character art
+    // sits ~25 px below the cell top, which means each frame Phaser extracts
+    // contains the previous row's feet at the top and clips the current
+    // row's feet off the bottom. Shift each frame's source window down by
+    // 25 px to align with the actual character art. Clamp cutHeight against
+    // the texture bottom so the last row doesn't read past the image.
+    const PLAYER_FRAME_Y_SHIFT = 25;
     const playerTex = this.textures.get(SpriteKeys.PLAYER);
+    const texH = playerTex.source[0].height;
     for (const name of playerTex.getFrameNames()) {
-      const idx = parseInt(name, 10);
-      if (Number.isNaN(idx)) continue;
-      const row = Math.floor(idx / FRAMES_PER_ROW);
-      const topTrim = PER_ROW_TOP_TRIM[row] ?? 0;
-      if (topTrim === 0) continue;
       const frame = playerTex.frames[name];
-      frame.setSize(
-        frame.cutWidth,
-        frame.cutHeight - topTrim,
-        frame.cutX,
-        frame.cutY + topTrim,
-      );
+      const newCutY = frame.cutY + PLAYER_FRAME_Y_SHIFT;
+      const newCutHeight = Math.min(frame.cutHeight, texH - newCutY);
+      frame.setSize(frame.cutWidth, newCutHeight, frame.cutX, newCutY);
     }
 
     this.scene.run(SceneKeys.PLAYER_HUD);
