@@ -14,16 +14,24 @@ const ensureSingletons = () => {
   return { menu: sharedMenu, overlay: sharedOverlay };
 };
 
-type ClickableSprite = Phaser.GameObjects.GameObject & {
-  x: number; y: number; scene: Phaser.Scene;
-};
-
-export const attachInteraction = (sprite: ClickableSprite, npcId: NpcId) => {
+export const attachInteraction = (sprite: Phaser.GameObjects.Rectangle, npcId: NpcId) => {
   const { menu, overlay } = ensureSingletons();
-  const interactive = sprite as unknown as { setInteractive?: (cfg?: object) => void };
-  interactive.setInteractive?.({ useHandCursor: true });
 
-  sprite.on('pointerdown', () => {
+  // Explicit hit area in local coords. Origin is (0.5, 1) so the rectangle
+  // spans (-w/2, -h, w, h) relative to the sprite's position. Pad it
+  // generously so users don't need pixel-perfect aim.
+  const w = sprite.width;
+  const h = sprite.height;
+  const pad = 8;
+  sprite.setInteractive({
+    hitArea: new Phaser.Geom.Rectangle(-w / 2 - pad, -h - pad, w + pad * 2, h + pad * 2),
+    hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+    useHandCursor: true,
+  });
+
+  sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    console.log('[NPC] pointerdown', npcId, 'at', sprite.x, sprite.y);
+    pointer.event?.stopPropagation?.();
     menu.open(sprite.scene, sprite.x, sprite.y, [
       {
         id: 'talk',
@@ -31,10 +39,7 @@ export const attachInteraction = (sprite: ClickableSprite, npcId: NpcId) => {
         onPick: () => {
           const npc = npcById(npcId);
           const tree = DIALOGUE_TREES[npcId];
-          if (!tree) {
-            console.warn('[NPCInteraction] no tree for', npcId);
-            return;
-          }
+          if (!tree) return;
           overlay.open(tree, npc.dialogueRootId);
         },
       },
