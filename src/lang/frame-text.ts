@@ -17,7 +17,7 @@ import {
 // through nested JSON.
 //
 // Grammar (informal):
-//   frame    := ("!" | "~")* predicate ("." tense)? "(" roles? ")"
+//   frame    := ("!" | "~" | "?")* predicate ("." tense)? "(" roles? ")"
 //   roles    := role ("," role)*
 //   role     := name "=" filler
 //   filler   := pronoun | conceptId ("." number)? | "[" frame "]"
@@ -25,13 +25,16 @@ import {
 //   number   := "sg" | "pl"
 //   tense    := "past" | "present" | "future"
 //   "~" before the predicate marks negation; "!" before the predicate marks
-//   an imperative. Either order is accepted (e.g. "!~GIVE" == "~!GIVE").
-//   Mood otherwise defaults to declarative; question-ness rides on an
-//   "unknown" filler.
+//   an imperative; "?" before the predicate marks a polar (yes/no) question.
+//   Markers may appear in any order (e.g. "!~GIVE" == "~!GIVE"). Mood
+//   otherwise defaults to declarative; wh-question-ness rides on an
+//   "unknown" filler. "?" and "unknown" are mutually exclusive (polar Q vs
+//   wh-Q) — the validator will reject a frame that combines them.
 //
 // Examples:
 //   WANT(wanter=self, desired=FLINT)
 //   WANT(wanter=listener, desired=unknown)
+//   ?HAVE(owner=listener, theme=FLINT)
 //   !GIVE(agent=listener, recipient=self, theme=STICK)
 //   ~HAVE.past(owner=SMITH, theme=BREAD)
 //   SAY(speaker=SMITH, recipient=self,
@@ -63,6 +66,7 @@ export class FrameTextError extends Error {
 export function formatFrameText(frame: FilledFrame): string {
   let out = "";
   if (frame.mood === "imperative") out += "!";
+  if (frame.polarQuestion) out += "?";
   if (frame.negated) out += "~";
   out += frame.predicate;
   if (frame.tense && frame.tense !== "present") out += `.${frame.tense}`;
@@ -126,9 +130,12 @@ function parseFrame(cur: Cursor, conceptType: ConceptTypeLookup): FilledFrame {
   skipWs(cur);
   let negated = false;
   let imperative = false;
-  // Accept "!" and "~" as prefix markers in either order.
-  while (peek(cur) === "!" || peek(cur) === "~") {
-    if (peek(cur) === "!") imperative = true;
+  let polar = false;
+  // Accept "!", "~", and "?" as prefix markers in any order.
+  while (peek(cur) === "!" || peek(cur) === "~" || peek(cur) === "?") {
+    const ch = peek(cur);
+    if (ch === "!") imperative = true;
+    else if (ch === "?") polar = true;
     else negated = true;
     cur.pos++;
     skipWs(cur);
@@ -168,6 +175,7 @@ function parseFrame(cur: Cursor, conceptType: ConceptTypeLookup): FilledFrame {
   };
   if (tense && tense !== "present") frame.tense = tense;
   if (negated) frame.negated = true;
+  if (polar) frame.polarQuestion = true;
   return frame;
 }
 
