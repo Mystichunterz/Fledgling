@@ -89,6 +89,28 @@ const renderEffects = (node: DialogueNode): string => {
   return `<div class="dc-effects">${trig}${fxLines}</div>`;
 };
 
+// The authored English source — what the writer wrote, before any frame
+// encoding. Speech segments render as plain text; stage segments render dim
+// and italicised so they read as directorial cues.
+const renderOriginal = (node: DialogueNode): string => {
+  const lineParts = node.line.map(seg =>
+    seg.kind === 'speech'
+      ? `<span class="dc-orig-speech">${escapeHtml(seg.english)}</span>`
+      : `<span class="dc-orig-stage">[${escapeHtml(seg.text)}]</span>`,
+  ).join(' ');
+  const optParts = node.options.map((opt, i) => {
+    const tag = opt.kind === 'gesture' ? '*' : '"';
+    const close = opt.kind === 'gesture' ? '*' : '"';
+    return `<div class="dc-orig-opt">[${i + 1}] ${tag}${escapeHtml(opt.english)}${close}</div>`;
+  }).join('');
+  return `
+    <div class="dc-original">
+      <div class="dc-orig-line">${lineParts || '<span class="dc-empty">(empty line)</span>'}</div>
+      ${optParts ? `<div class="dc-orig-opts">${optParts}</div>` : ''}
+    </div>
+  `;
+};
+
 export class DialogueDevConsole {
   private root: HTMLDivElement;
   private body: HTMLDivElement;
@@ -155,6 +177,15 @@ export class DialogueDevConsole {
       .dc-fx { color: #8fc8a8; font-size: 11px; }
       .dc-trig { color: #c8a878; }
       .dc-err { color: #e88; font-style: italic; }
+      .dc-original {
+        background: rgba(36,30,20,0.55); border-left: 2px solid #8a6f3a;
+        padding: 8px 10px; margin-bottom: 8px; border-radius: 0 3px 3px 0;
+      }
+      .dc-orig-line { color: #e8dcc1; font-size: 13px; line-height: 1.5; }
+      .dc-orig-speech { color: #e8dcc1; }
+      .dc-orig-stage { color: #b89878; font-style: italic; }
+      .dc-orig-opts { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(138,111,58,0.35); }
+      .dc-orig-opt { color: #d4c89a; font-size: 12px; line-height: 1.4; }
     `;
     document.head.appendChild(style);
 
@@ -229,6 +260,8 @@ export class DialogueDevConsole {
         lang=<b>${escapeHtml(spec.id ?? '?')}</b>
       </div>
       ${renderEffects(node)}
+      <div class="dc-section-title">Original</div>
+      ${renderOriginal(node)}
       <div class="dc-section-title">Line</div>
       ${renderSegments(spec, node.line)}
       <div class="dc-section-title">Options</div>
