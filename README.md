@@ -10,6 +10,8 @@ Run #3, Naro the baker:    "se kuru-le  pana-mi."
 
 Same baker. Same line. (She wants wood.) Different language, every time you load the page.
 
+![An NPC speaking the procedurally-generated language in the dialogue overlay](docs/screenshots/foreign_conversation.png)
+
 You crash on an island. **Five villagers** speak a language no human has ever spoken before. Phonology, lexicon, grammar — all generated the moment you load the page. They want wood, oil, and flint to light the lighthouse beacon. Nobody will translate for you. Your only tool is a diary you fill in yourself by hovering over words and writing what you think they mean.
 
 Guess right and the world responds. The baker hands you a bundle of logs. Guess wrong and she tilts her head and waits. The game never tells you which.
@@ -33,6 +35,8 @@ It's also cosy. Nothing punishes you. A wrong guess loops back. The method you u
 You hover *tova-n*. The word she said while looking at the basket of logs you walked past on the way in. You write **wood?** in the diary.
 
 You hover *ki-ra*. She said it gesturing at her own chest. **me?**
+
+![The diary — hover any word to write what you think it means](docs/screenshots/diary_screenshot.png)
 
 The dialogue overlay gives you three response frames, all encoded into the same run's language. You pick the one whose gloss in your diary reads roughly *"I give wood to you."*
 
