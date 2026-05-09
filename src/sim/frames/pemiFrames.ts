@@ -10,11 +10,11 @@ import type { FilledFrame } from '../../lang/frames';
 export const PEMI_LINE_FRAMES: Record<string, FilledFrame[]> = {
   PEM_BEACH_INTRO: [
     { predicate: 'GREET', mood: 'declarative', roles: { greeter: 'self', addressee: 'listener' } },
-    { predicate: 'SAY', mood: 'declarative', roles: { speaker: 'self', recipient: 'listener', content: { type: 'ANIMATE', conceptId: 'PEMI' } } },
+    { predicate: 'BE_IDENTITY', mood: 'declarative', roles: { entity: 'self', identity: { type: 'ANIMATE', conceptId: 'PEMI' } } },
     // "Me — you?" (asking the listener's name) is not cleanly encodable —
-    // SAY.content has no wh-word and there's no FRAME for "who are you". The
-    // gesture/stage direction in the source line carries the prompt; we drop
-    // the frame so the surface is just "hi" + "I am Pemi".
+    // there's no FRAME for "who are you". The gesture/stage direction in the
+    // source line carries the prompt; we drop the frame so the surface is
+    // just "hi" + "I am Pemi".
   ],
   PEM_WAVE_BACK: [
     { predicate: 'GREET', mood: 'declarative', roles: { greeter: 'listener', addressee: 'self' } },
@@ -24,13 +24,13 @@ export const PEMI_LINE_FRAMES: Record<string, FilledFrame[]> = {
     { predicate: 'SAY', mood: 'declarative', roles: { speaker: 'self', recipient: 'listener', content: { type: 'ANIMATE', conceptId: 'NARO' } } },
   ],
   PEM_NAME_MIME: [
-    { predicate: 'SAY', mood: 'declarative', roles: { speaker: 'self', recipient: 'listener', content: { type: 'ANIMATE', conceptId: 'PEMI' } } },
+    { predicate: 'BE_IDENTITY', mood: 'declarative', roles: { entity: 'self', identity: { type: 'ANIMATE', conceptId: 'PEMI' } } },
     { predicate: 'GREET', mood: 'declarative', roles: { greeter: 'self', addressee: 'listener' } },
     { predicate: 'MOVE', mood: 'imperative', roles: { agent: 'listener', destination: { type: 'LOCATION', conceptId: 'VILLAGE' } } },
   ],
   PEM_QUIET: [
     { predicate: 'GREET', mood: 'declarative', roles: { greeter: 'self', addressee: 'listener' } },
-    { predicate: 'SAY', mood: 'declarative', roles: { speaker: 'self', recipient: 'listener', content: { type: 'ANIMATE', conceptId: 'PEMI' } } },
+    { predicate: 'BE_IDENTITY', mood: 'declarative', roles: { entity: 'self', identity: { type: 'ANIMATE', conceptId: 'PEMI' } } },
   ],
   PEM_FOLLOW: [
     { predicate: 'BE_AT', mood: 'declarative', roles: { figure: 'self', ground: 'reference' } },

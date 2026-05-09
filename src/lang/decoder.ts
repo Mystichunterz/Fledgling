@@ -218,6 +218,7 @@ export function decodeText(
   // produce the "unknown" filler — particle is redundant but stripped if
   // present). IMP sets the FilledFrame's mood to imperative.
   let particleMood: Mood | null = null;
+  let particleQ = false;
   if (spec.particles) {
     const tryStrip = (p: { form: string; position: "initial" | "final" }): boolean => {
       if (p.form === "") return false;
@@ -231,8 +232,9 @@ export function decodeText(
       }
       return false;
     };
-    const qStripped = tryStrip(spec.particles.Q);
-    if (!qStripped && tryStrip(spec.particles.IMP)) {
+    if (tryStrip(spec.particles.Q)) {
+      particleQ = true;
+    } else if (tryStrip(spec.particles.IMP)) {
       particleMood = "imperative";
     }
   }
@@ -346,6 +348,13 @@ export function decodeText(
   // omit them still round-trip identically.
   if (verb.tense !== "present") filled.tense = verb.tense;
   if (verb.negated || particleNegated) filled.negated = true;
+  // Polar question: the surface had a Q signal (verb mood tag and/or
+  // particle) but no role recovered an "unknown" filler. The encoder set
+  // Q for `polarQuestion: true`, so recover it here to round-trip.
+  const recoveredUnknown = Object.values(filledRoles).some((f) => f === "unknown");
+  if ((verb.mood === "Q" || particleQ) && !recoveredUnknown) {
+    filled.polarQuestion = true;
+  }
   validateFilledFrame(filled);
   return filled;
 }
@@ -368,7 +377,7 @@ function decodeSimple(spec: LanguageSpec, input: string): FilledFrame {
   if (allTokens.length === 0) throw new ParseError("Empty input");
 
   // Strip a sentence-level Q or IMP particle, if present.
-  const { mood, rest } = stripMoodParticleSimple(spec, allTokens);
+  const { mood, particleQ, rest } = stripMoodParticleSimple(spec, allTokens);
   if (rest.length === 0) {
     throw new ParseError("Empty input after particle strip");
   }
@@ -477,6 +486,13 @@ function decodeSimple(spec: LanguageSpec, input: string): FilledFrame {
     roles: filledRoles,
   };
   if (negated) filled.negated = true;
+  // If a Q particle was stripped but no role recovered an "unknown"
+  // filler, the input was a polar (yes/no) question — recover the flag
+  // so encode/decode round-trips.
+  const recoveredUnknown = Object.values(filledRoles).some((f) => f === "unknown");
+  if (particleQ && !recoveredUnknown) {
+    filled.polarQuestion = true;
+  }
   validateFilledFrame(filled);
   return filled;
 }
@@ -511,28 +527,32 @@ function stripNegationParticle(
 function stripMoodParticleSimple(
   spec: LanguageSpec,
   tokens: string[],
-): { mood: Mood; rest: string[] } {
-  if (!spec.particles) return { mood: "declarative", rest: tokens };
-  // The Q particle is informational only — question-ness rides on the
-  // "unknown" filler the wh-word produces. The Mood we return is just
-  // declarative vs imperative; Q strips the particle and stays declarative.
+): { mood: Mood; particleQ: boolean; rest: string[] } {
+  if (!spec.particles) {
+    return { mood: "declarative", particleQ: false, rest: tokens };
+  }
+  // The Q particle signals interrogative; question-ness then rides on
+  // either an "unknown" filler (wh-Q) or the polarQuestion flag (polar Q),
+  // which the caller decides based on what the rest of the parse recovers.
   const tryStrip = (
     p: { form: string; position: "initial" | "final" } | undefined,
     mood: Mood,
-  ): { mood: Mood; rest: string[] } | null => {
+    particleQ: boolean,
+  ): { mood: Mood; particleQ: boolean; rest: string[] } | null => {
     if (!p || p.form === "") return null;
     if (p.position === "initial" && tokens[0] === p.form) {
-      return { mood, rest: tokens.slice(1) };
+      return { mood, particleQ, rest: tokens.slice(1) };
     }
     if (p.position === "final" && tokens[tokens.length - 1] === p.form) {
-      return { mood, rest: tokens.slice(0, -1) };
+      return { mood, particleQ, rest: tokens.slice(0, -1) };
     }
     return null;
   };
   return (
-    tryStrip(spec.particles.Q, "declarative") ??
-    tryStrip(spec.particles.IMP, "imperative") ?? {
+    tryStrip(spec.particles.Q, "declarative", true) ??
+    tryStrip(spec.particles.IMP, "imperative", false) ?? {
       mood: "declarative",
+      particleQ: false,
       rest: tokens,
     }
   );

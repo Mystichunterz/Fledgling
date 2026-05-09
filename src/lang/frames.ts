@@ -74,25 +74,29 @@ export const FRAMES: Record<string, FrameSpec> = {
     category: "state",
     roles: [
       { name: "wanter",  types: ["ANIMATE"], grammar: "subject" },
-      { name: "desired", types: ["ITEM"],    grammar: "object" },
+      // ABSTRACT covers "want to stay/leave" via the LEAVING/STAYING concepts;
+      // ANIMATE covers "were you in love" (HAL_LOVE).
+      { name: "desired", types: ["ITEM", "ABSTRACT", "ANIMATE", "EVENT"], grammar: "object", allowsNested: true },
     ],
   },
   BE_AT: {
     id: "BE_AT",
     category: "state",
     roles: [
-      // Items are the common case for this game (the player asks
-      // "where is the flint?"); animates are rarer but supported.
-      { name: "figure", types: ["ITEM", "ANIMATE"], grammar: "subject" },
-      { name: "ground", types: ["LOCATION"],        grammar: "oblique" },
+      // Items, animates, and locations can all be figures: "where's the flint",
+      // "the shrine-keeper is at the shrine", "the hut is west".
+      { name: "figure", types: ["ITEM", "ANIMATE", "LOCATION"], grammar: "subject" },
+      { name: "ground", types: ["LOCATION"],                    grammar: "oblique" },
     ],
   },
   HAVE: {
     id: "HAVE",
     category: "state",
     roles: [
-      { name: "owner", types: ["ANIMATE"], grammar: "subject" },
-      { name: "theme", types: ["ITEM"],    grammar: "object" },
+      { name: "owner", types: ["ANIMATE"],            grammar: "subject" },
+      // ANIMATE supports "we had each other" (HAL_LOVE); LOCATION supports
+      // "Maren had a hut" (TOK_HINT).
+      { name: "theme", types: ["ITEM", "ANIMATE", "LOCATION"], grammar: "object" },
     ],
   },
   // ─── New frames ─────────────────────────────────────────────
@@ -100,19 +104,21 @@ export const FRAMES: Record<string, FrameSpec> = {
     id: "SEE",
     category: "state",
     roles: [
-      { name: "viewer", types: ["ANIMATE"],                     grammar: "subject" },
-      { name: "target", types: ["ITEM", "ANIMATE", "LOCATION"], grammar: "object" },
+      { name: "viewer", types: ["ANIMATE"],                              grammar: "subject" },
+      // EVENT enables "I saw them leave" (a nested MOVE frame).
+      { name: "target", types: ["ITEM", "ANIMATE", "LOCATION", "EVENT"], grammar: "object", allowsNested: true },
     ],
   },
   SAY: {
     // SAY supports a nested frame in `content`. Without nesting the content
-    // role takes an ITEM ("the smith says the flint" — referring to it).
+    // role takes an ITEM ("the smith says the flint" — referring to it) or
+    // an ANIMATE ("tell me about Maren").
     id: "SAY",
     category: "action",
     roles: [
-      { name: "speaker",   types: ["ANIMATE"],       grammar: "subject" },
-      { name: "recipient", types: ["ANIMATE"],       grammar: "oblique" },
-      { name: "content",   types: ["EVENT", "ITEM"], grammar: "object", allowsNested: true },
+      { name: "speaker",   types: ["ANIMATE"],                    grammar: "subject" },
+      { name: "recipient", types: ["ANIMATE"],                    grammar: "oblique" },
+      { name: "content",   types: ["EVENT", "ITEM", "ANIMATE"],   grammar: "object", allowsNested: true },
     ],
   },
   MAKE: {
@@ -141,6 +147,78 @@ export const FRAMES: Record<string, FrameSpec> = {
     roles: [
       { name: "experiencer", types: ["ANIMATE"],  grammar: "subject" },
       { name: "state",       types: ["ABSTRACT"], grammar: "object" },
+    ],
+  },
+  BE_IDENTITY: {
+    // Equational copula — "X is Y" where Y identifies X (typically by name).
+    // Carries self-introductions ("I am Pemi"), other-identifications
+    // ("that is the smith"), and other animate-equates-animate propositions.
+    // Distinct from BE_STATE (animate bears an abstract property) and BE_AT
+    // (animate located at a place). Animate-only on both sides keeps generic
+    // copular usage on items/locations from sliding in here.
+    id: "BE_IDENTITY",
+    category: "state",
+    roles: [
+      { name: "entity",   types: ["ANIMATE"], grammar: "subject" },
+      { name: "identity", types: ["ANIMATE"], grammar: "object" },
+    ],
+  },
+  // ─── Social / dialogue frames (added for game integration) ──
+  GREET: {
+    // Phatic opener AND closer (farewells). The sprite animation
+    // disambiguates wave-hello from wave-goodbye; the frame itself is the
+    // same. Declarative present is canonical; imperative is illegal
+    // (the validator rejects it because GREET is a "state" category, not
+    // "action"). The addressee is required so we always have a 2nd-person
+    // referent for the case-marked oblique slot.
+    id: "GREET",
+    category: "state",
+    roles: [
+      { name: "greeter",   types: ["ANIMATE"], grammar: "subject" },
+      { name: "addressee", types: ["ANIMATE"], grammar: "oblique" },
+    ],
+  },
+  AFFIRM: {
+    // Workhorse "..." continuation, "yes", "all right", reassurance. The
+    // proposition is typically `reference` (anaphor to the prior turn) for
+    // bare confirmations, or a nested frame echoing what was just asked.
+    id: "AFFIRM",
+    category: "state",
+    roles: [
+      { name: "agreer",      types: ["ANIMATE"],                            grammar: "subject" },
+      { name: "proposition", types: ["EVENT", "ITEM", "ANIMATE", "ABSTRACT"], grammar: "object", allowsNested: true },
+    ],
+  },
+  DENY: {
+    // Mirror of AFFIRM. DENY ≠ negated AFFIRM — DENY is "I disagree with X",
+    // negated-AFFIRM is "I do not agree with X" (weaker register).
+    id: "DENY",
+    category: "state",
+    roles: [
+      { name: "disagreer",   types: ["ANIMATE"],                            grammar: "subject" },
+      { name: "proposition", types: ["EVENT", "ITEM", "ANIMATE", "ABSTRACT"], grammar: "object", allowsNested: true },
+    ],
+  },
+  DECIDE: {
+    // The leave/stay commitment moment. The `choice` is an ABSTRACT concept
+    // (LEAVING / STAYING) — `applyChoice` reads it to set endingChoice.
+    id: "DECIDE",
+    category: "action",
+    roles: [
+      { name: "decider", types: ["ANIMATE"],  grammar: "subject" },
+      { name: "choice",  types: ["ABSTRACT"], grammar: "object" },
+    ],
+  },
+  KNOW: {
+    // Promoted from optional to firm v1 — Hala's whole arc is about
+    // remembering, and SEE.past is a poor substitute. Object accepts the
+    // wide set so "I knew Maren" / "I knew the song" / "I knew the place"
+    // all parse without contortion.
+    id: "KNOW",
+    category: "state",
+    roles: [
+      { name: "knower", types: ["ANIMATE"],                                  grammar: "subject" },
+      { name: "object", types: ["ANIMATE", "ITEM", "LOCATION", "EVENT", "ABSTRACT"], grammar: "object", allowsNested: true },
     ],
   },
 };
@@ -329,6 +407,11 @@ export function validateFilledFrame(filled: FilledFrame, depth = 1): void {
 
   if (unknownCount > 1) {
     throw new Error(`Frame ${frame.id} has ${unknownCount} "unknown" fillers (max 1)`);
+  }
+  if (filled.polarQuestion === true && unknownCount > 0) {
+    throw new Error(
+      `Frame ${frame.id} has both polarQuestion and an "unknown" filler — polar Q and wh-Q are mutually exclusive`,
+    );
   }
   if (filled.mood === "imperative" && frame.category !== "action") {
     throw new Error(

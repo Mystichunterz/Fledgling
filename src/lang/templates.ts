@@ -106,6 +106,11 @@ const ALL_TEMPLATES: Template[] = [
     { kind: "object" }, { kind: "subject" }, { kind: "verb" },
   ]),
 
+  T("BE_IDENTITY_active", "BE_IDENTITY", "active: entity is identity", SVO_O),
+  T("BE_IDENTITY_object_first", "BE_IDENTITY", "identity focus: identity, entity is", [
+    { kind: "object" }, { kind: "subject" }, { kind: "verb" },
+  ]),
+
   // ─── social / dialogue frames ───────────────────────────────
   T("GREET_active", "GREET", "active: greeter greets addressee", SVO_O),
   T("GREET_oblique_first", "GREET", "addressee focus: to addressee, greeter greets", [

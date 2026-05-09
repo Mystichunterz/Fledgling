@@ -6,7 +6,7 @@ import type { FilledFrame } from '../../lang/frames';
 export const LEMU_LINE_FRAMES: Record<string, FilledFrame[]> = {
   LEM_INITIAL: [
     { predicate: 'GREET', mood: 'declarative', roles: { greeter: 'self', addressee: 'listener' } },
-    { predicate: 'SAY', mood: 'declarative', roles: { speaker: 'self', recipient: 'listener', content: { type: 'ANIMATE', conceptId: 'LEMU' } } },
+    { predicate: 'BE_IDENTITY', mood: 'declarative', roles: { entity: 'self', identity: { type: 'ANIMATE', conceptId: 'LEMU' } } },
   ],
   LEM_SAW_PLANE: [
     { predicate: 'KNOW', mood: 'declarative', tense: 'past', roles: { knower: 'self', object: 'reference' } },

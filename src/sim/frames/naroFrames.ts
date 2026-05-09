@@ -6,9 +6,9 @@ import type { FilledFrame } from '../../lang/frames';
 export const NARO_LINE_FRAMES: Record<string, FilledFrame[]> = {
   NAR_INITIAL: [
     { predicate: 'GREET', mood: 'declarative', roles: { greeter: 'self', addressee: 'listener' } },
-    { predicate: 'SAY', mood: 'declarative', roles: { speaker: 'self', recipient: 'listener', content: { type: 'ANIMATE', conceptId: 'NARO' } } },
-    // "You?" — same name-elicitation pattern as Pemi; not cleanly encodable
-    // (SAY.content unknown has no wh-word). Carried by stage direction only.
+    { predicate: 'BE_IDENTITY', mood: 'declarative', roles: { entity: 'self', identity: { type: 'ANIMATE', conceptId: 'NARO' } } },
+    // "You?" — same name-elicitation pattern as Pemi; no FRAME for "who are
+    // you", so the prompt is carried by stage direction only.
   ],
   NAR_GREETING: [
     { predicate: 'AFFIRM', mood: 'declarative', roles: { agreer: 'self', proposition: 'reference' } },

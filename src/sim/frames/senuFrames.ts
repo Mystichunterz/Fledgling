@@ -8,7 +8,7 @@ export const SENU_LINE_FRAMES: Record<string, FilledFrame[]> = {
     { predicate: 'GREET', mood: 'declarative', roles: { greeter: 'self', addressee: 'listener' } },
   ],
   SEN_GREETING: [
-    { predicate: 'SAY', mood: 'declarative', roles: { speaker: 'self', recipient: 'listener', content: { type: 'ANIMATE', conceptId: 'SENU' } } },
+    { predicate: 'BE_IDENTITY', mood: 'declarative', roles: { entity: 'self', identity: { type: 'ANIMATE', conceptId: 'SENU' } } },
     { predicate: 'WANT', mood: 'declarative', roles: { wanter: 'self', desired: { type: 'ITEM', conceptId: 'BASKET' } } },
     { predicate: 'MOVE', mood: 'imperative', roles: { agent: 'listener', destination: { type: 'LOCATION', conceptId: 'WELL' } } },
     { predicate: 'HAVE', mood: 'declarative', roles: { owner: { type: 'ANIMATE', conceptId: 'NARO' }, theme: { type: 'ITEM', conceptId: 'BASKET' } } },
