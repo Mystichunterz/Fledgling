@@ -6,6 +6,7 @@ import { SceneKeys } from './assets/keys';
 import { spawnNpcsForScene, spawnNpc } from './sim/spawnNpcs';
 import { npcById, type NpcSceneKey } from './sim/npcRoster';
 import { spawnPickupTiles } from './sim/pickupTiles';
+import { attachHutJournalProximity } from './sim/hutProximity';
 import { installHandoverListener } from './state/handovers';
 import { initDiary } from './sim/diary';
 import { DiaryOverlay } from './ui/DiaryOverlay';
@@ -48,6 +49,7 @@ game.events.once('ready', () => {
       spawnNpcsForScene(scene, npcSceneKey);
       spawnPickupTiles(scene, npcSceneKey);
       if (sceneKey === SceneKeys.CRASH_SITE) handlePemiAtBeach(scene);
+      if (sceneKey === SceneKeys.VILLAGE) attachHutJournalProximity(scene);
     });
   }
 });

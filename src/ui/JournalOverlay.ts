@@ -7,9 +7,7 @@ const PREDECESSOR_NAME = 'Maren';
 // has_visited_hut, which unlocks {{predecessorName}}-flavoured dialogue
 // branches across all NPCs.
 const PAGES: string[] = [
-  `If you're reading this, you washed up the same way I did.\nThe village is south of here. Ask for a child first — Pemi if she's still small. She's the easiest to learn from.`,
-  `The four to know:\nNaro at the well — bread, fruit, songs that taught me my first verbs.\nLemu at the firepit — oil for the lighthouse, sea-eyes, fewer words than the rest.\nToka at the shrine — flint, careful, won't hand it over until you've earned it.\nSenu at the forest — wood, quiet, kind in the way of people who don't need to say so.`,
-  `Hala lives in the lighthouse on the headland. She is the chief, and she is your last conversation.\nWhen the boat comes — and a boat will come — she will ask you the same question she asked me.\nThere is no wrong answer. Only the one you can live with.\n\n— ${PREDECESSOR_NAME}`,
+  `If you're reading this, you washed up like I did.\n\nThe four to find:\n  Naro — well, bread\n  Lemu — firepit, oil\n  Toka — shrine, flint\n  Senu — forest, wood\n\nHala's in the lighthouse. She'll ask you a question.\nThere's no wrong answer — only one you can live with.\n\n— ${PREDECESSOR_NAME}`,
 ];
 
 export class JournalOverlay {
