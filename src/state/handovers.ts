@@ -1,12 +1,11 @@
 import { giveItem, removeItem } from './GameRegistry';
-import type { CriticalItemId, FillerItemId } from './items';
+import type { CriticalItemId, FillerItemId, SouvenirItemId } from './items';
 
-// Maps a dialogue node ID to (a) the critical item the NPC hands over, and
-// (b) the filler item taken in exchange (which leaves the player's hotbar).
-// Naro's GIVE_FRUIT is the side-quest case — she takes fruit but hands no
-// critical item (the player just walks away with bread, narratively).
-const HANDOVERS: Record<string, { gives?: CriticalItemId; takes?: FillerItemId }> = {
-  NAR_GIVE_FRUIT:     {                  takes: 'fruit'  },
+// Maps a dialogue node ID to (a) the item the NPC hands over and (b) the
+// filler item taken in exchange. Naro's case gives bread (a souvenir) for
+// fruit; the three village handovers give criticals for fillers.
+const HANDOVERS: Record<string, { gives?: CriticalItemId | SouvenirItemId; takes?: FillerItemId }> = {
+  NAR_GIVE_FRUIT:     { gives: 'bread',  takes: 'fruit'  },
   LEM_HANDOVER_OIL:   { gives: 'oil',    takes: 'water'  },
   TOK_HANDOVER_FLINT: { gives: 'flint',  takes: 'rope'   },
   SEN_HANDOVER_WOOD:  { gives: 'wood',   takes: 'basket' },
