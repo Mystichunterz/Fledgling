@@ -48,6 +48,8 @@ export class BootScene extends Phaser.Scene {
       frameHeight: 16,
       spacing: 1,
     });
+    this.load.image(SpriteKeys.PALM_TREE, 'sprite_palm_tree.png');
+    this.load.image(SpriteKeys.ROCK, 'sprite_rock.png');
     this.load.audio(AudioKeys.BGM_ISLAND, 'audio/Vows_Of_The_Awakened.mp3');
   }
 

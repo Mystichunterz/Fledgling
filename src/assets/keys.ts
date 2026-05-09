@@ -32,6 +32,8 @@ export const SpriteKeys = {
   ITEM_BASKET:'item_basket',
   PROP_DIARY: 'prop_diary',
   TILES_TERRAIN: 'tiles_terrain',
+  PALM_TREE: 'palm_tree',
+  ROCK: 'rock',
 } as const;
 export type SpriteKey = typeof SpriteKeys[keyof typeof SpriteKeys];
 

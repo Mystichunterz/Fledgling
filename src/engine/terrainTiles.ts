@@ -31,10 +31,11 @@ const FRAME_FOR_FILL: Record<TerrainKind, number> = {
   dirt:  TileFrames.DIRT_C,
 };
 
-const TREE_FRAME_FOR: Record<TerrainKind, number> = {
-  grass: TileFrames.TREE_GRASS,
-  dirt:  TileFrames.TREE_DIRT,
-};
+const PALM_TREE_DISPLAY_W = 96;
+const PALM_TREE_DISPLAY_H = 120;
+
+const ROCK_DISPLAY_W = 40;
+const ROCK_DISPLAY_H = 32;
 
 /**
  * Fill a rectangular region with a repeated terrain tile (pure grass or pure
@@ -77,12 +78,11 @@ export function scatterTrees(
   pw: number,
   ph: number,
   count: number,
-  variant: TerrainKind,
+  _variant: TerrainKind,
   rng: () => number = Math.random,
 ): Phaser.GameObjects.Image[] {
   const cols = Math.max(1, Math.floor(pw / TILE_SIZE));
   const rows = Math.max(1, Math.floor(ph / TILE_SIZE));
-  const frame = TREE_FRAME_FOR[variant];
   const out: Phaser.GameObjects.Image[] = [];
   const used = new Set<string>();
   let safety = count * 8;
@@ -94,8 +94,45 @@ export function scatterTrees(
     used.add(k);
     const cx = px + rx * TILE_SIZE + TILE_SIZE / 2;
     const cy = py + ry * TILE_SIZE + TILE_SIZE;
-    const img = scene.add.image(cx, cy, SpriteKeys.TILES_TERRAIN, frame)
+    const img = scene.add.image(cx, cy, SpriteKeys.PALM_TREE)
       .setOrigin(0.5, 1)
+      .setDisplaySize(PALM_TREE_DISPLAY_W, PALM_TREE_DISPLAY_H)
+      .setDepth(Depths.BG_DECOR + cy);
+    out.push(img);
+  }
+  return out;
+}
+
+/**
+ * Scatter `count` rock sprites at random tile cells inside the given pixel
+ * rectangle. Y-sorts via depth so actors pass behind/in-front correctly.
+ * Pass a seeded RNG for deterministic placement.
+ */
+export function scatterRocks(
+  scene: Phaser.Scene,
+  px: number,
+  py: number,
+  pw: number,
+  ph: number,
+  count: number,
+  rng: () => number = Math.random,
+): Phaser.GameObjects.Image[] {
+  const cols = Math.max(1, Math.floor(pw / TILE_SIZE));
+  const rows = Math.max(1, Math.floor(ph / TILE_SIZE));
+  const out: Phaser.GameObjects.Image[] = [];
+  const used = new Set<string>();
+  let safety = count * 8;
+  while (out.length < count && safety-- > 0) {
+    const rx = Math.floor(rng() * cols);
+    const ry = Math.floor(rng() * rows);
+    const k = `${rx},${ry}`;
+    if (used.has(k)) continue;
+    used.add(k);
+    const cx = px + rx * TILE_SIZE + TILE_SIZE / 2;
+    const cy = py + ry * TILE_SIZE + TILE_SIZE;
+    const img = scene.add.image(cx, cy, SpriteKeys.ROCK)
+      .setOrigin(0.5, 1)
+      .setDisplaySize(ROCK_DISPLAY_W, ROCK_DISPLAY_H)
       .setDepth(Depths.BG_DECOR + cy);
     out.push(img);
   }

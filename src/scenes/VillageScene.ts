@@ -13,7 +13,7 @@ import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
-import { paintFill, scatterTrees } from '../engine/terrainTiles';
+import { paintFill, scatterTrees, scatterRocks } from '../engine/terrainTiles';
 import { snappedFollow } from '../engine/camera';
 import { CAMERA_ZOOM } from '../config';
 
@@ -98,11 +98,17 @@ export class VillageScene extends Phaser.Scene {
     const innerW = VILLAGE_WIDTH - INNER_INSET * 2;
     const innerH = VILLAGE_HEIGHT - INNER_INSET * 2;
 
-    // Top, bottom, left, right bands — trees only on the outer ring.
-    scatterTrees(this, MARGIN, MARGIN, VILLAGE_WIDTH - MARGIN * 2, INNER_INSET - MARGIN, 6, 'grass');
-    scatterTrees(this, MARGIN, INNER_INSET + innerH, VILLAGE_WIDTH - MARGIN * 2, INNER_INSET - MARGIN, 6, 'grass');
-    scatterTrees(this, MARGIN, INNER_INSET, INNER_INSET - MARGIN, innerH, 4, 'grass');
-    scatterTrees(this, INNER_INSET + innerW, INNER_INSET, INNER_INSET - MARGIN, innerH, 4, 'grass');
+    // Top, bottom, left, right bands — palms cluster on the outer ring.
+    scatterTrees(this, MARGIN, MARGIN, VILLAGE_WIDTH - MARGIN * 2, INNER_INSET - MARGIN, 10, 'grass');
+    scatterTrees(this, MARGIN, INNER_INSET + innerH, VILLAGE_WIDTH - MARGIN * 2, INNER_INSET - MARGIN, 10, 'grass');
+    scatterTrees(this, MARGIN, INNER_INSET, INNER_INSET - MARGIN, innerH, 6, 'grass');
+    scatterTrees(this, INNER_INSET + innerW, INNER_INSET, INNER_INSET - MARGIN, innerH, 6, 'grass');
+
+    // Rocks scattered in the same outer ring — sparser accent layer.
+    scatterRocks(this, MARGIN, MARGIN, VILLAGE_WIDTH - MARGIN * 2, INNER_INSET - MARGIN, 4);
+    scatterRocks(this, MARGIN, INNER_INSET + innerH, VILLAGE_WIDTH - MARGIN * 2, INNER_INSET - MARGIN, 4);
+    scatterRocks(this, MARGIN, INNER_INSET, INNER_INSET - MARGIN, innerH, 3);
+    scatterRocks(this, INNER_INSET + innerW, INNER_INSET, INNER_INSET - MARGIN, innerH, 3);
   }
 
   private buildLandmarks() {
