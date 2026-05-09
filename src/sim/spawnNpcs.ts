@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { Depths } from '../engine/depths';
 import { attachInteraction } from '../actors/NPCInteraction';
+import { attachProximityHighlight } from '../engine/highlight';
 import { attachLabel } from '../ui/NpcLabel';
 import { NPC_ROSTER, NpcSceneKey } from './npcRoster';
 
@@ -13,6 +14,7 @@ export const spawnNpcsForScene = (scene: Phaser.Scene, sceneKey: NpcSceneKey) =>
       .setDepth(Depths.ACTORS + Math.round(npc.spawn.y));
     attachLabel(scene, sprite, npc.displayName);
     attachInteraction(sprite, npc.id);
+    attachProximityHighlight(scene, sprite, { radius: 48 });
     return sprite;
   });
 };

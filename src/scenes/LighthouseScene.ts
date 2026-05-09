@@ -9,17 +9,24 @@ import {
   SpawnPoint,
   SceneEnterData,
 } from '../engine/transitions';
-import { GameRegistry, hasAllItems } from '../state/GameRegistry';
+import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
+import { attachProximityHighlight } from '../engine/highlight';
+import { LighthouseMenu } from '../ui/LighthouseMenu';
+
+let sharedMenu: LighthouseMenu | null = null;
+const ensureMenu = () => {
+  if (!sharedMenu) sharedMenu = new LighthouseMenu();
+  return sharedMenu;
+};
 
 export const LIGHTHOUSE_WIDTH = 640;
 export const LIGHTHOUSE_HEIGHT = 360;
 
 const PYRE_X = LIGHTHOUSE_WIDTH / 2;
 const PYRE_Y = 200;
-const PYRE_TRIGGER_RADIUS = 40;
 
 const SPAWN_POINTS: Record<string, SpawnPoint> = {
   fromVillage: { x: 320, y: 60, facing: 'south' },
@@ -36,7 +43,6 @@ export class LighthouseScene extends Phaser.Scene {
   private beacon: Phaser.GameObjects.Image;
   private fire?: Phaser.GameObjects.Image;
   private flameGlow?: Phaser.GameObjects.Rectangle;
-  private ignitedThisFrame = false;
 
   constructor() {
     super(SceneKeys.LIGHTHOUSE);
@@ -63,6 +69,19 @@ export class LighthouseScene extends Phaser.Scene {
     this.beacon = this.add.image(PYRE_X, PYRE_Y, SpriteKeys.LOC_BEACON)
       .setOrigin(0.5, 1)
       .setDepth(Depths.BG_DECOR + 200);
+
+    // Invisible click target spanning the full pyre. Doubles as the anchor
+    // for the proximity highlight so the yellow ring frames the visible
+    // structure, not just one log.
+    const interact = this.add.rectangle(PYRE_X, PYRE_Y - 12, 64, 36, 0x000000, 0)
+      .setOrigin(0.5, 0.5)
+      .setDepth(Depths.ACTORS)
+      .setInteractive({ useHandCursor: true });
+    interact.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      pointer.event?.stopPropagation?.();
+      ensureMenu().open({ onLight: () => this.igniteBeacon() });
+    });
+    attachProximityHighlight(this, interact, { radius: 56 });
 
     this.add.rectangle(140, 220, 16, 24, 0x504030)
       .setOrigin(0.5, 1)
@@ -103,19 +122,10 @@ export class LighthouseScene extends Phaser.Scene {
     GameRegistry.playerX = this.player.sprite.x;
     GameRegistry.playerY = this.player.sprite.y;
     checkTransitions(this, this.player, LIGHTHOUSE_WIDTH, LIGHTHOUSE_HEIGHT, ZONES);
-
-    if (!GameRegistry.beaconLit && hasAllItems()) {
-      const dx = this.player.sprite.x - PYRE_X;
-      const dy = this.player.sprite.y - PYRE_Y;
-      if (Math.hypot(dx, dy) < PYRE_TRIGGER_RADIUS) {
-        this.igniteBeacon();
-      }
-    }
   }
 
   private igniteBeacon() {
-    if (this.ignitedThisFrame) return;
-    this.ignitedThisFrame = true;
+    if (GameRegistry.beaconLit) return;
     GameRegistry.beaconLit = true;
     this.applyLitVisual(true);
   }

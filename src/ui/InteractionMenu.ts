@@ -9,6 +9,7 @@ export interface MenuOption {
 export class InteractionMenu {
   private root: HTMLDivElement;
   private clickAwayHandler: (ev: MouseEvent) => void;
+  private dismissKeyHandler: (ev: KeyboardEvent) => void;
   private isOpen = false;
 
   constructor() {
@@ -27,6 +28,19 @@ export class InteractionMenu {
       if (!this.isOpen) return;
       if (this.root.contains(ev.target as Node)) return;
       this.close();
+    };
+
+    // The menu is anchored at world coords at open() time and doesn't follow
+    // the camera, so any movement intent dismisses it. Escape too, for parity
+    // with the dialogue overlay.
+    this.dismissKeyHandler = (ev: KeyboardEvent) => {
+      if (!this.isOpen) return;
+      const k = ev.key;
+      const movement =
+        k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown' ||
+        k === 'w' || k === 'a' || k === 's' || k === 'd' ||
+        k === 'W' || k === 'A' || k === 'S' || k === 'D';
+      if (movement || k === 'Escape') this.close();
     };
   }
 
@@ -53,13 +67,17 @@ export class InteractionMenu {
     this.root.style.display = 'block';
     this.isOpen = true;
     // Defer the click-away listener so the click that opened the menu doesn't immediately close it.
-    setTimeout(() => window.addEventListener('mousedown', this.clickAwayHandler), 0);
+    setTimeout(() => {
+      window.addEventListener('mousedown', this.clickAwayHandler);
+      window.addEventListener('keydown', this.dismissKeyHandler);
+    }, 0);
   }
 
   close() {
     this.root.style.display = 'none';
     this.isOpen = false;
     window.removeEventListener('mousedown', this.clickAwayHandler);
+    window.removeEventListener('keydown', this.dismissKeyHandler);
   }
 
   private worldToScreen(scene: Phaser.Scene, worldX: number, worldY: number): { x: number; y: number } {
@@ -76,6 +94,7 @@ export class InteractionMenu {
 
   destroy() {
     window.removeEventListener('mousedown', this.clickAwayHandler);
+    window.removeEventListener('keydown', this.dismissKeyHandler);
     this.root.remove();
   }
 }
