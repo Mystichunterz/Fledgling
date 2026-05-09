@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GameRegistry } from '../state/GameRegistry';
-import { ITEMS, ITEM_LABEL } from '../state/items';
+import { CRITICAL_ITEMS, ITEM_LABEL } from '../state/items';
 
 export interface LighthouseMenuOpenOptions {
   onLight: () => void;
@@ -78,7 +78,7 @@ export class LighthouseMenu {
 
     const list = document.createElement('div');
     list.style.cssText = 'margin-bottom: 12px;';
-    for (const id of ITEMS) {
+    for (const id of CRITICAL_ITEMS) {
       const has = GameRegistry.itemsCollected.has(id);
       const row = document.createElement('div');
       row.style.cssText = `
@@ -101,7 +101,7 @@ export class LighthouseMenu {
     }
     this.root.appendChild(list);
 
-    const allHave = ITEMS.every(id => GameRegistry.itemsCollected.has(id));
+    const allHave = CRITICAL_ITEMS.every(id => GameRegistry.itemsCollected.has(id));
     this.root.appendChild(
       this.makeButton(
         allHave ? 'Light the Beacon' : `Need ${this.missingCount()} more`,
@@ -115,7 +115,7 @@ export class LighthouseMenu {
   }
 
   private missingCount(): number {
-    return ITEMS.filter(id => !GameRegistry.itemsCollected.has(id)).length;
+    return CRITICAL_ITEMS.filter(id => !GameRegistry.itemsCollected.has(id)).length;
   }
 
   private makeButton(label: string, enabled: boolean, onClick: () => void): HTMLButtonElement {

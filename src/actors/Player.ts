@@ -4,7 +4,7 @@ import { clampToRect } from '../engine/coords';
 import { SpriteKeys } from '../assets/keys';
 
 const SPEED = 60;
-const PLAYER_DISPLAY_SIZE = 48;
+const PLAYER_DISPLAY_SIZE = 32;
 const PLAYER_ANIMS = {
   IDLE: 'player-idle',
   WALK_DOWN: 'player-walk-down',

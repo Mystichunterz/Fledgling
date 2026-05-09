@@ -6,10 +6,10 @@ import { SceneKeys } from './assets/keys';
 import { spawnNpcsForScene, spawnNpc } from './sim/spawnNpcs';
 import { npcById, type NpcSceneKey } from './sim/npcRoster';
 import { spawnPickupTiles } from './sim/pickupTiles';
+import { attachJournalPage } from './sim/hutProximity';
 import { installHandoverListener } from './state/handovers';
 import { initDiary } from './sim/diary';
 import { DiaryOverlay } from './ui/DiaryOverlay';
-import { InventoryHud } from './ui/InventoryHud';
 import { EndScreen } from './ui/EndScreen';
 import { initFlags, isFlagSet } from './state/dialogueFlags';
 import { CrashPrologue, hasSeenPrologue } from './scenes/CrashPrologue';
@@ -18,7 +18,6 @@ initFlags();
 installHandoverListener();
 initDiary();
 new DiaryOverlay();
-new InventoryHud();
 new EndScreen();
 const prologue = new CrashPrologue();
 
@@ -50,6 +49,9 @@ game.events.once('ready', () => {
       spawnNpcsForScene(scene, npcSceneKey);
       spawnPickupTiles(scene, npcSceneKey);
       if (sceneKey === SceneKeys.CRASH_SITE) handlePemiAtBeach(scene);
+      // Maren's journal sits on the hut floor — clickable, glows on approach.
+      // Placed left of the existing prop row so it stands clear of them.
+      if (sceneKey === SceneKeys.HUT) attachJournalPage(scene, { x: 180, y: 220 });
     });
   }
 });

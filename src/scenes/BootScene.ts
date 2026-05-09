@@ -21,6 +21,16 @@ export class BootScene extends Phaser.Scene {
     this.load.image(SpriteKeys.LOC_BEACON, 'sprite_location_lighthouse_headland_beacon.png');
     this.load.image(SpriteKeys.LOC_BEACON_OFF, 'sprite_location_lighthouse_OFF.png');
     this.load.image(SpriteKeys.LOC_BOAT,   'sprite_location_boat.png');
+    this.load.image(SpriteKeys.LOC_BAKERY, 'sprite_location_bakery.png');
+    this.load.image(SpriteKeys.LOC_GUARDPOST, 'sprite_location_guardpost.png');
+    this.load.image(SpriteKeys.LOC_PLAYGROUND, 'sprite_location_playground.png');
+    this.load.image(SpriteKeys.LOC_FARM, 'sprite_location_farm.png');
+    for (let i = 0; i < 3; i++) {
+      this.load.image(`npc_chief_${i}`, `sprite_npc_chief_${i}.png`);
+      this.load.image(`npc_child_${i}`, `sprite_npc_child_${i}.png`);
+      this.load.image(`npc_man_${i}`,   `sprite_npc_man_${i}.png`);
+      this.load.image(`npc_elder_${i}`, `sprite_npc_elder_${i}.png`);
+    }
     this.load.image(SpriteKeys.ITEM_WOOD,  'sprite_item_wood.png');
     this.load.image(SpriteKeys.ITEM_OIL,   'sprite_item_oil.png');
     this.load.image(SpriteKeys.ITEM_FLINT, 'sprite_item_flint.png');
@@ -33,15 +43,20 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // The player spritesheet's frames are cropped a few pixels too high.
-    // Phaser's spritesheet `margin` is uniform (X + Y), so we can't shift
-    // only vertically via the loader config — adjust each frame's cutY
-    // after load instead.
-    const PLAYER_FRAME_Y_SHIFT = 5;
+    // Every cell in the player spritesheet is misaligned: the character art
+    // sits ~25 px below the cell top, which means each frame Phaser extracts
+    // contains the previous row's feet at the top and clips the current
+    // row's feet off the bottom. Shift each frame's source window down by
+    // 25 px to align with the actual character art. Clamp cutHeight against
+    // the texture bottom so the last row doesn't read past the image.
+    const PLAYER_FRAME_Y_SHIFT = 25;
     const playerTex = this.textures.get(SpriteKeys.PLAYER);
+    const texH = playerTex.source[0].height;
     for (const name of playerTex.getFrameNames()) {
       const frame = playerTex.frames[name];
-      frame.setSize(frame.cutWidth, frame.cutHeight, frame.cutX, frame.cutY + PLAYER_FRAME_Y_SHIFT);
+      const newCutY = frame.cutY + PLAYER_FRAME_Y_SHIFT;
+      const newCutHeight = Math.min(frame.cutHeight, texH - newCutY);
+      frame.setSize(frame.cutWidth, newCutHeight, frame.cutX, newCutY);
     }
 
     this.scene.run(SceneKeys.PLAYER_HUD);

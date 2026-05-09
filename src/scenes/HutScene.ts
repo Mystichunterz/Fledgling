@@ -15,7 +15,6 @@ import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 import { paintFill } from '../engine/terrainTiles';
 import { snappedFollow } from '../engine/camera';
-import { maybeOpenJournalOnHutEntry } from '../ui/JournalOverlay';
 
 export const HUT_WIDTH = 480;
 export const HUT_HEIGHT = 270;
@@ -37,8 +36,11 @@ export class HutScene extends Phaser.Scene {
     super(SceneKeys.HUT);
   }
 
+  private spawnXY: { x: number; y: number } | null = null;
+
   init(data: SceneEnterData) {
     this.spawnAt = data.spawnAt;
+    this.spawnXY = data.x != null && data.y != null ? { x: data.x, y: data.y } : null;
   }
 
   create() {
@@ -77,7 +79,7 @@ export class HutScene extends Phaser.Scene {
     const spawn = resolveSpawn(SPAWN_POINTS, this.spawnAt, 'default');
     this.player = new Player(
       this,
-      spawn.x, spawn.y,
+      this.spawnXY?.x ?? spawn.x, this.spawnXY?.y ?? spawn.y,
       {
         x0: 24,
         y0: 80,
@@ -95,10 +97,6 @@ export class HutScene extends Phaser.Scene {
     }
 
     fadeInOnEnter(this);
-    // Journal page is the predecessor's left-behind note. Reading it sets
-    // has_visited_hut, which unlocks {{predecessorName}}-flavoured dialogue
-    // branches across all NPCs. Auto-open on first hut entry.
-    maybeOpenJournalOnHutEntry();
   }
 
   override update(_time: number, delta: number) {

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-interface Followable { x: number; y: number; height: number; }
+interface Followable { x: number; y: number; displayHeight: number; }
 
 // Phaser's DOMElement uses a container positioned at the canvas parent's
 // top-left, but #game flex-centers the canvas inside a 100vh box so labels
@@ -8,10 +8,10 @@ interface Followable { x: number; y: number; height: number; }
 // We sidestep that by appending labels to <body> and updating their CSS
 // each frame from the canvas's own getBoundingClientRect().
 //
-// The label is positioned with its bottom-center anchored `gap` CSS pixels
-// above the sprite's rendered top — independent of camera zoom, so the
-// label sits cleanly above the head whether the canvas is 320x180 or 6x
-// upscaled.
+// World→viewport must factor in cam.zoom (CAMERA_ZOOM=2 in scenes/config.ts);
+// without it, labels under-correct for camera scroll and visibly drift with
+// the camera. Tick on PRE_RENDER (not POST_UPDATE) so the scroll value we
+// read is the post-bounds-clamp value the renderer will actually use.
 export const attachLabel = (
   scene: Phaser.Scene,
   sprite: Followable,
@@ -31,24 +31,26 @@ export const attachLabel = (
   `;
   document.body.appendChild(el);
 
+  const cam = scene.cameras.main;
+
   const update = () => {
-    const cam = scene.cameras.main;
     const canvas = scene.scale.canvas;
     const rect = canvas.getBoundingClientRect();
     const sx = rect.width / scene.scale.width;
     const sy = rect.height / scene.scale.height;
+    const z = cam.zoom;
     // Sprite origin is assumed (0.5, 1) — sprite.y is the bottom edge.
-    const spriteTopWorldY = sprite.y - sprite.height;
-    const cssX = rect.left + (sprite.x - cam.scrollX) * sx;
-    const cssY = rect.top + (spriteTopWorldY - cam.scrollY) * sy - gap;
+    const spriteTopWorldY = sprite.y - sprite.displayHeight;
+    const cssX = rect.left + (sprite.x - cam.scrollX) * z * sx;
+    const cssY = rect.top + (spriteTopWorldY - cam.scrollY) * z * sy - gap;
     el.style.transform = `translate(${cssX}px, ${cssY}px) translate(-50%, -100%)`;
   };
 
   update();
-  scene.events.on(Phaser.Scenes.Events.POST_UPDATE, update);
+  scene.events.on(Phaser.Scenes.Events.PRE_RENDER, update);
 
   const cleanup = () => {
-    scene.events.off(Phaser.Scenes.Events.POST_UPDATE, update);
+    scene.events.off(Phaser.Scenes.Events.PRE_RENDER, update);
     el.remove();
   };
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { SceneKeys } from '../assets/keys';
 import { GameRegistry, giveItem, clearItems } from '../state/GameRegistry';
 import { ITEMS, ITEM_LABEL, type ItemId } from '../state/items';
+import { NPC_ROSTER } from '../sim/npcRoster';
 
 const HOTKEY_TO_SCENE: Record<string, string> = {
   '1': SceneKeys.CRASH_SITE,
@@ -16,6 +17,15 @@ const TELEPORTS: Array<{ key: string; label: string; sceneKey: string }> = [
   { key: '3', label: 'Hut',      sceneKey: SceneKeys.HUT },
   { key: '4', label: 'Lighthouse', sceneKey: SceneKeys.LIGHTHOUSE },
 ];
+
+// npcRoster.scene values match SceneKeys values 1:1 — they're both the
+// runtime scene-key strings. Cast directly when teleporting.
+const NPC_SCENE_TO_KEY: Record<string, string> = {
+  crash_site: SceneKeys.CRASH_SITE,
+  village:    SceneKeys.VILLAGE,
+  hut:        SceneKeys.HUT,
+  lighthouse: SceneKeys.LIGHTHOUSE,
+};
 
 export class DebugScene extends Phaser.Scene {
   private hudEl: HTMLElement | null = null;
@@ -62,6 +72,20 @@ export class DebugScene extends Phaser.Scene {
       this.buttons.set(sceneKey, btn);
     }
     this.hudEl.appendChild(teleport);
+
+    const npcs = document.createElement('div');
+    npcs.className = 'teleport npcs';
+    for (const npc of NPC_ROSTER) {
+      const sceneKey = NPC_SCENE_TO_KEY[npc.scene];
+      if (!sceneKey) continue;
+      const btn = document.createElement('button');
+      btn.dataset.npc = npc.id;
+      btn.textContent = npc.displayName;
+      btn.title = `Teleport to ${npc.displayName} (${npc.scene} ${npc.spawn.x},${npc.spawn.y})`;
+      btn.addEventListener('click', () => this.jumpToCoords(sceneKey, npc.spawn.x, npc.spawn.y));
+      npcs.appendChild(btn);
+    }
+    this.hudEl.appendChild(npcs);
 
     const items = document.createElement('div');
     items.className = 'teleport items';
@@ -165,5 +189,25 @@ export class DebugScene extends Phaser.Scene {
     // this.scene.start which would kill DebugScene every teleport.
     this.game.scene.stop(current);
     this.game.scene.start(target, { spawnAt: 'default' });
+  }
+
+  // Teleport to specific world coordinates within a scene. Used by the NPC
+  // jump buttons. If we're already in the target scene, just nudge the
+  // existing player sprite — no scene swap needed.
+  private jumpToCoords(target: string, x: number, y: number) {
+    const current = GameRegistry.currentScene;
+    if (!current) return;
+    if (current === target) {
+      const ws = this.game.scene.getScene(target) as Phaser.Scene & {
+        player?: { sprite?: { x: number; y: number } };
+      };
+      if (ws?.player?.sprite) {
+        ws.player.sprite.x = x;
+        ws.player.sprite.y = y;
+      }
+      return;
+    }
+    this.game.scene.stop(current);
+    this.game.scene.start(target, { x, y });
   }
 }
