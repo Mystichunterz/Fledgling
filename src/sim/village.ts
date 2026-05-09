@@ -37,6 +37,16 @@ export const ITEM_HOMES: Record<ItemId, LocationId> = {
   STICK: "FORGE",
 };
 
+// One thing an NPC overheard. We keep the SAY frame whole rather than
+// just the inner content because the responder needs to know who spoke
+// (frame.roles.speaker) to address them back.
+export interface HeardEntry {
+  from: string; // speaker NPC id
+  frame: FilledFrame; // the full SAY frame
+}
+
+const HEARD_CAP = 4;
+
 export class NPC {
   inventory = new Set<ItemId>();
   hunger = 0;
@@ -44,6 +54,10 @@ export class NPC {
   // Last meal, briefly held so the NPC can later boast about it
   // ("I ate the bread") in past tense to a same-room companion.
   lastEaten: ItemId | null = null;
+  // Things said TO this NPC by others in the same location, oldest
+  // first. Each turn the NPC pops the head and may respond. Capped to
+  // avoid runaway buildup if both sides go quiet.
+  heard: HeardEntry[] = [];
 
   constructor(
     public id: string,
@@ -70,7 +84,108 @@ export interface Decision {
   apply(world: World, npc: NPC): void;
 }
 
+// Build a SAY frame wrapping `inner`, addressed from `speaker` to
+// `audience`. Used by every dialogue branch below — saves repeating the
+// outer scaffold five times.
+function sayTo(speaker: NPC, audience: NPC, inner: FilledFrame): FilledFrame {
+  return {
+    predicate: "SAY",
+    mood: "declarative",
+    roles: {
+      speaker: ref("ANIMATE", speaker.id),
+      recipient: ref("ANIMATE", audience.id),
+      content: { kind: "frame", frame: inner },
+    },
+  };
+}
+
+// Try to produce a response to something the NPC just heard. Returns
+// null when there's nothing useful to say — the caller falls through to
+// normal goal-driven behaviour. Only handles a few specific shapes; the
+// rest pass silently to keep the stream from drowning in chit-chat.
+function tryRespond(
+  _world: World,
+  npc: NPC,
+  audience: NPC,
+  heardSay: FilledFrame,
+): Decision | null {
+  if (heardSay.predicate !== "SAY") return null;
+  const content = heardSay.roles.content;
+  if (!content || isPronoun(content) || !("kind" in content)) return null;
+  const inner = content.frame;
+
+  // 1. Heard a "where is X?" question (BE_AT with unknown ground for an
+  //    item). Answer with the item's known home.
+  if (
+    inner.predicate === "BE_AT" &&
+    inner.roles.ground === "unknown"
+  ) {
+    const figure = inner.roles.figure;
+    if (figure && !isPronoun(figure) && isEntityRef(figure) && figure.type === "ITEM") {
+      const home = ITEM_HOMES[figure.conceptId as ItemId];
+      if (home) {
+        const answer: FilledFrame = {
+          predicate: "BE_AT",
+          mood: "declarative",
+          roles: {
+            figure: ref("ITEM", figure.conceptId),
+            ground: ref("LOCATION", home),
+          },
+        };
+        return { frame: sayTo(npc, audience, answer), apply() {} };
+      }
+    }
+  }
+
+  // 2. Heard "I want X". If we're carrying X, offer it: "I have X".
+  if (inner.predicate === "WANT") {
+    const desired = inner.roles.desired;
+    if (desired && !isPronoun(desired) && isEntityRef(desired) && desired.type === "ITEM") {
+      const item = desired.conceptId as ItemId;
+      if (npc.inventory.has(item)) {
+        const offer: FilledFrame = {
+          predicate: "HAVE",
+          mood: "declarative",
+          roles: {
+            owner: ref("ANIMATE", npc.id),
+            theme: ref("ITEM", item),
+          },
+        };
+        return { frame: sayTo(npc, audience, offer), apply() {} };
+      }
+    }
+  }
+
+  // 3. Heard a past-tense boast ("I ate the bread"). Acknowledge by
+  //    saying you see them — short, terminal, doesn't trigger a reply
+  //    loop because tryRespond ignores SEE-acks.
+  if (inner.predicate === "EAT" && inner.tense === "past") {
+    const ack: FilledFrame = {
+      predicate: "SEE",
+      mood: "declarative",
+      roles: {
+        viewer: ref("ANIMATE", npc.id),
+        target: ref("ANIMATE", audience.id),
+      },
+    };
+    return { frame: sayTo(npc, audience, ack), apply() {} };
+  }
+
+  return null;
+}
+
 export function decide(world: World, npc: NPC, others: NPC[]): Decision {
+  // 0. Conversation: if someone spoke to us and is still here, try to
+  //    respond. Pop one heard entry per turn; whatever doesn't trigger
+  //    a response silently expires.
+  while (npc.heard.length > 0) {
+    const entry = npc.heard.shift()!;
+    const speaker = others.find((o) => o.id === entry.from);
+    if (!speaker || speaker.location !== npc.location) continue; // out of earshot now
+    const resp = tryRespond(world, npc, speaker, entry.frame);
+    if (resp) return resp;
+  }
+
   // 1. Past-tense gossip: if we recently ate and a companion is here,
   //    most of the time we'll boast about it via SAY-with-nested-EAT.
   if (npc.lastEaten) {
@@ -199,6 +314,24 @@ export function decide(world: World, npc: NPC, others: NPC[]): Decision {
   // 5. Know where it lives → walk there.
   const home = ITEM_HOMES[item];
   if (npc.location !== home) {
+    // 5a. If a companion is here, sometimes ask them out loud first
+    //     ("where is bread?"). The companion's tryRespond will answer
+    //     next tick. Performative — we already know — but it produces
+    //     visible dialogue and exercises the wh-question machinery.
+    const companion = others.find(
+      (o) => o !== npc && o.location === npc.location,
+    );
+    if (companion && Math.random() < 0.35) {
+      const question: FilledFrame = {
+        predicate: "BE_AT",
+        mood: "declarative",
+        roles: {
+          figure: ref("ITEM", item),
+          ground: "unknown",
+        },
+      };
+      return { frame: sayTo(npc, companion, question), apply() {} };
+    }
     return {
       frame: {
         predicate: "MOVE",
@@ -268,6 +401,23 @@ export interface TickEntry {
   decision: Decision;
 }
 
+// If `frame` is a SAY directed at a same-room NPC, push it onto that
+// NPC's heard queue so they can respond on their next turn. Out-of-room
+// recipients are dropped silently — out of earshot. Capped per recipient.
+function routeSpeech(frame: FilledFrame, speaker: NPC, npcs: NPC[]): void {
+  if (frame.predicate !== "SAY") return;
+  const r = frame.roles.recipient;
+  if (!r || isPronoun(r)) return;
+  if (!isEntityRef(r) || r.type !== "ANIMATE") return;
+  const recipient = npcs.find((n) => n.id === r.conceptId);
+  if (!recipient || recipient === speaker) return;
+  if (recipient.location !== speaker.location) return;
+  recipient.heard.push({ from: speaker.id, frame });
+  if (recipient.heard.length > HEARD_CAP) {
+    recipient.heard.splice(0, recipient.heard.length - HEARD_CAP);
+  }
+}
+
 // Advance the world one tick: respawn, tick needs for everyone, then
 // resolve every NPC's action in turn. If `overrides` supplies a Decision
 // for an NPC, that decision is used instead of the autonomous one — this
@@ -287,6 +437,10 @@ export function tickAll(
     const decision = override ?? decide(world, npc, npcs);
     out.push({ npc, decision });
     decision.apply(world, npc);
+    // Route AFTER apply so any state changes the SAY caused (e.g.
+    // clearing lastEaten) land first. This lets the same tick produce
+    // A speaks → B speaks if A was earlier in turn order.
+    routeSpeech(decision.frame, npc, npcs);
   }
   return out;
 }
