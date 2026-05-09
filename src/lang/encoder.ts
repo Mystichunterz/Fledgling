@@ -185,11 +185,13 @@ function encodeFrameInner(spec: LanguageSpec, frame: FilledFrame): string {
   if (!frameSpec) throw new Error(`Unknown frame: ${frame.predicate}`);
 
   const subjectNumber = subjectNumberOf(spec, frame);
-  // Question-ness rides on the presence of an "unknown" filler. The
-  // morphological mood tag picks Q in that case so the verb gets the
-  // interrogative affix; otherwise it's whatever the frame's mood says.
+  // Question-ness rides on either an "unknown" filler (wh-question) or
+  // the explicit `polarQuestion` flag (yes/no question). The validator
+  // guarantees these are mutually exclusive. Either signal selects the Q
+  // mood tag so the verb gets the interrogative affix.
   const hasUnknown = Object.values(frame.roles).some(isUnknown);
-  const moodTag: MoodTag = hasUnknown ? "Q" : moodTagOf(frame.mood);
+  const isQuestion = hasUnknown || frame.polarQuestion === true;
+  const moodTag: MoodTag = isQuestion ? "Q" : moodTagOf(frame.mood);
 
   // Build a word per role using the frame's grammatical assignments.
   const subjectWords: string[] = [];
@@ -247,16 +249,17 @@ function encodeFrameInner(spec: LanguageSpec, frame: FilledFrame): string {
   }
 
   // Sentence-level mood particles (used in "simple" difficulty languages).
-  // Q wraps any frame containing an "unknown" filler; IMP wraps imperative
-  // frames. Particle marks STACK with affix marks (a language could in
-  // principle do both); in practice, simple-mode languages have empty mood
-  // affixes so only the particle is visible.
+  // Q wraps any question frame (wh- via "unknown" filler, or polar via
+  // the polarQuestion flag); IMP wraps imperative frames. Particle marks
+  // STACK with affix marks (a language could in principle do both); in
+  // practice, simple-mode languages have empty mood affixes so only the
+  // particle is visible.
   if (spec.particles) {
     const apply = (p: { form: string; position: "initial" | "final" }) => {
       if (p.form === "") return;
       words = p.position === "initial" ? [p.form, ...words] : [...words, p.form];
     };
-    if (hasUnknown) apply(spec.particles.Q);
+    if (isQuestion) apply(spec.particles.Q);
     else if (frame.mood === "imperative") apply(spec.particles.IMP);
   }
 

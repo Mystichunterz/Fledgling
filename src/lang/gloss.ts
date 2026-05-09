@@ -145,15 +145,16 @@ export function glossFrame(
     }
   }
 
-  // Question-ness rides on the presence of an "unknown" filler — that's
-  // what selects the Q affix / Q particle. Otherwise it's IMP for
-  // imperative frames and DECL for declarative.
+  // Question-ness rides on either an "unknown" filler (wh-Q) or the
+  // polarQuestion flag (polar Q) — both select the Q affix / Q particle.
+  // Otherwise it's IMP for imperative frames and DECL for declarative.
   const hasUnknown = Object.values(filled.roles).some(isUnknown);
+  const isQuestion = hasUnknown || filled.polarQuestion === true;
   // Build the verb word. Stem + tense + (agreement-number) + mood.
   const verb = verbForFrame(spec, frame.id);
   const tense = tenseOf(filled);
   const tenseAffix = spec.morphology.tense[tense];
-  const moodTag: MoodTag = hasUnknown ? "Q" : moodTagOf(filled.mood);
+  const moodTag: MoodTag = isQuestion ? "Q" : moodTagOf(filled.mood);
   const moodAffix = spec.morphology.mood[moodTag];
 
   let verbSurface = applyAffix(verb.stem, tenseAffix);

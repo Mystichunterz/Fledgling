@@ -266,3 +266,82 @@ describe("v2: gloss tags", () => {
     expect(allTags).toContain("ACC");
   });
 });
+
+describe("polar questions", () => {
+  it("encodes a polar Q with the Q mood affix on the verb", () => {
+    // 'did the woodsman see the smith?' — no `unknown` filler, all roles
+    // bound, polarQuestion: true → verb gets the -li (Q) suffix.
+    const frame: FilledFrame = {
+      predicate: "SEE",
+      mood: "declarative",
+      polarQuestion: true,
+      roles: {
+        viewer: { type: "ANIMATE", conceptId: "WOODSMAN" },
+        target: { type: "ANIMATE", conceptId: "SMITH" },
+      },
+    };
+    // tovari is SOV, suffixing; SEE = rena, Q = -li, ACC = -n.
+    expect(encodeFrame(L, frame)).toBe("henu tovan renali");
+  });
+
+  it("round-trips a polar Q (inflectional language)", () => {
+    const frame: FilledFrame = {
+      predicate: "SEE",
+      mood: "declarative",
+      polarQuestion: true,
+      roles: {
+        viewer: { type: "ANIMATE", conceptId: "WOODSMAN" },
+        target: { type: "ANIMATE", conceptId: "SMITH" },
+      },
+    };
+    expect(decodeText(L, encodeFrame(L, frame))).toEqual(frame);
+  });
+
+  it("round-trips a polar Q in simple-difficulty mode (Q particle)", () => {
+    const Lsimple = randomLanguage("alpha", "simple");
+    const frame: FilledFrame = {
+      predicate: "SEE",
+      mood: "declarative",
+      polarQuestion: true,
+      roles: {
+        viewer: "self",
+        target: { type: "ANIMATE", conceptId: "SMITH" },
+      },
+    };
+    const surface = encodeFrame(Lsimple, frame);
+    // The Q particle should appear in the surface form.
+    const qParticle = Lsimple.particles!.Q;
+    expect(surface.split(/\s+/)).toContain(qParticle.form);
+    expect(decodeText(Lsimple, surface)).toEqual(frame);
+  });
+
+  it("preserves the wh-Q surface when there is also an `unknown` filler... but the validator rejects mixing them", () => {
+    // polarQuestion + an unknown filler is illegal — a frame is either a
+    // polar Q or a wh-Q, never both.
+    const bad: FilledFrame = {
+      predicate: "SEE",
+      mood: "declarative",
+      polarQuestion: true,
+      roles: {
+        viewer: "self",
+        target: "unknown",
+      },
+    };
+    expect(() => encodeFrame(L, bad)).toThrow(/polarQuestion.*unknown|unknown.*polarQuestion/);
+  });
+
+  it("gloss tags Q on the verb for a polar Q", () => {
+    const frame: FilledFrame = {
+      predicate: "SEE",
+      mood: "declarative",
+      polarQuestion: true,
+      roles: {
+        viewer: "self",
+        target: { type: "ANIMATE", conceptId: "SMITH" },
+      },
+    };
+    const g = glossFrame(L, frame);
+    const allTags = g.words.flatMap((w) => w.tags);
+    expect(allTags).toContain("Q");
+  });
+});

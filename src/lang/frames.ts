@@ -251,6 +251,11 @@ export type FilledFrame = {
   // type under `exactOptionalPropertyTypes: true`.
   tense?: Tense | undefined;
   negated?: boolean | undefined;
+  // Yes/no question. Mutually exclusive with any "unknown" filler — a
+  // frame is either a polar Q ("did you see them?") or a wh-Q ("what did
+  // you see?"), never both. When true, encoder/gloss emit the Q mood
+  // marker just as they do for wh-questions.
+  polarQuestion?: boolean | undefined;
 };
 
 export type RoleFiller =
@@ -265,6 +270,7 @@ export const FilledFrame: z.ZodType<FilledFrame> = z.lazy(() =>
     roles: z.record(z.string(), RoleFiller),
     tense: Tense.optional(),
     negated: z.boolean().optional(),
+    polarQuestion: z.boolean().optional(),
   }),
 );
 
@@ -371,6 +377,11 @@ export function validateFilledFrame(filled: FilledFrame, depth = 1): void {
 
   if (unknownCount > 1) {
     throw new Error(`Frame ${frame.id} has ${unknownCount} "unknown" fillers (max 1)`);
+  }
+  if (filled.polarQuestion === true && unknownCount > 0) {
+    throw new Error(
+      `Frame ${frame.id} has both polarQuestion and an "unknown" filler — polar Q and wh-Q are mutually exclusive`,
+    );
   }
   if (filled.mood === "imperative" && frame.category !== "action") {
     throw new Error(
