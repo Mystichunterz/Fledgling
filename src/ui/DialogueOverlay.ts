@@ -5,7 +5,7 @@ import { isFlagSet, setFlag } from '../state/dialogueFlags';
 const applySideEffects = (effects?: NodeSideEffect[]) => {
   if (!effects) return;
   for (const e of effects) {
-    if (e.kind === 'set_flag') setFlag(e.flag);
+    if (e.kind === 'set_flag') setFlag(e.flag, e.value ?? true);
     else if (e.kind === 'set_anchor') setFlag(`anchor_known.${e.anchor}` as const);
     else if (e.kind === 'log_hint') {
       window.dispatchEvent(new CustomEvent('fledgling:hint', { detail: { hint: e.hint } }));

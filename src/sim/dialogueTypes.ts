@@ -24,7 +24,7 @@ export type StateFlag =
 
 export type NodeSideEffect =
   | { kind: 'set_anchor'; anchor: AnchorWord }
-  | { kind: 'set_flag'; flag: StateFlag }
+  | { kind: 'set_flag'; flag: StateFlag; value?: boolean } // value defaults true
   | { kind: 'log_hint'; hint: string };
 
 export interface NodeTrigger {

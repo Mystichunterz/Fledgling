@@ -5,9 +5,11 @@ import { GameRegistry } from './state/GameRegistry';
 import { SceneKeys } from './assets/keys';
 import { spawnNpcsForScene, spawnNpc } from './sim/spawnNpcs';
 import { npcById, type NpcSceneKey } from './sim/npcRoster';
+import { spawnPickupTiles } from './sim/pickupTiles';
 import { installHandoverListener } from './state/handovers';
 import { initDiary } from './sim/diary';
 import { DiaryOverlay } from './ui/DiaryOverlay';
+import { InventoryHud } from './ui/InventoryHud';
 import { initFlags, isFlagSet } from './state/dialogueFlags';
 import { CrashPrologue, hasSeenPrologue } from './scenes/CrashPrologue';
 
@@ -15,6 +17,7 @@ initFlags();
 installHandoverListener();
 initDiary();
 new DiaryOverlay();
+new InventoryHud();
 const prologue = new CrashPrologue();
 
 const game = new Phaser.Game(gameConfig);
@@ -43,6 +46,7 @@ game.events.once('ready', () => {
     if (!scene) continue;
     scene.events.on('create', () => {
       spawnNpcsForScene(scene, npcSceneKey);
+      spawnPickupTiles(scene, npcSceneKey);
       if (sceneKey === SceneKeys.CRASH_SITE) handlePemiAtBeach(scene);
     });
   }

@@ -229,6 +229,7 @@ const naro: DialogueTree = {
       trigger: { requires: ['holding_fruit'], excludes: ['fetch_done_naro'] },
       sideEffects: [
         { kind: 'set_flag', flag: 'fetch_done_naro' },
+        { kind: 'set_flag', flag: 'holding_fruit', value: false },
       ],
       options: [
         { text: 'What now?', kind: 'utterance', react: 'nod',  next: 'NAR_NEXT_HINT' },
@@ -356,6 +357,7 @@ const lemu: DialogueTree = {
       sideEffects: [
         { kind: 'set_flag', flag: 'fetch_done_lemu' },
         { kind: 'set_flag', flag: 'holds_item_oil' },
+        { kind: 'set_flag', flag: 'holding_water', value: false },
       ],
       options: [
         { text: `${PREDECESSOR_NAME} press oil too?`, kind: 'utterance', react: 'nod',   next: 'LEM_MAREN_PRESS', gatedBy: 'has_visited_hut' },
@@ -479,6 +481,7 @@ const toka: DialogueTree = {
       sideEffects: [
         { kind: 'set_flag', flag: 'fetch_done_toka' },
         { kind: 'set_flag', flag: 'holds_item_flint' },
+        { kind: 'set_flag', flag: 'holding_rope', value: false },
       ],
       options: [
         { text: `${PREDECESSOR_NAME} ask you too?`, kind: 'utterance', react: 'laugh', next: 'TOK_MAREN_FLINT',  gatedBy: 'has_visited_hut' },
@@ -601,6 +604,7 @@ const senu: DialogueTree = {
       sideEffects: [
         { kind: 'set_flag', flag: 'fetch_done_senu' },
         { kind: 'set_flag', flag: 'holds_item_wood' },
+        { kind: 'set_flag', flag: 'holding_basket', value: false },
       ],
       options: [
         { text: `${PREDECESSOR_NAME} cut wood with you?`, kind: 'utterance', react: 'nod',   next: 'SEN_MAREN_WOOD', gatedBy: 'has_visited_hut' },
