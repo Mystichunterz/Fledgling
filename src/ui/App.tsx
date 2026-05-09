@@ -1,9 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
+  EntityRef,
   FRAMES,
   FilledFrame,
+  FrameSpec,
+  Pronoun,
   RoleFiller,
   RoleSpec,
+  RoleType,
   isEntityRef,
   isNestedFrame,
   isPronoun,
@@ -60,6 +64,7 @@ const PARSE_SEED_FRAME: FilledFrame = {
 const COMPOSE_EXAMPLES: { label: string; dsl: string }[] = [
   { label: "declarative",        dsl: "WANT(wanter=SMITH, desired=FLINT)" },
   { label: "wh-question",        dsl: "WANT(wanter=listener, desired=unknown)" },
+  { label: "polar question",     dsl: "?HAVE(owner=listener, theme=FLINT)" },
   { label: "imperative",         dsl: "!GIVE(agent=listener, recipient=self, theme=STICK)" },
   { label: "negated · past",     dsl: "~HAVE.past(owner=SMITH, theme=BREAD)" },
   { label: "1st-person",         dsl: "EAT(agent=self, patient=BREAD)" },
@@ -263,68 +268,358 @@ function Workbench({
 }
 
 // ============================================================
+// Compose helpers — build default frames + role filler choices
+// ============================================================
+
+// Concepts (entity refs) compatible with a role's accepted types. Excludes
+// verbs and wh-words (those aren't role fillers); pronouns are handled
+// separately by `pronounsFor`. Sorted by conceptId for stable UI ordering.
+function conceptsFor(
+  spec: LanguageSpec,
+  types: readonly RoleType[],
+): { conceptId: string; entry: LexiconEntry; type: RoleType }[] {
+  const out: { conceptId: string; entry: LexiconEntry; type: RoleType }[] = [];
+  for (const [conceptId, entry] of Object.entries(spec.lexicon)) {
+    if (entry.category !== "noun") continue;
+    if (!entry.semanticType) continue;
+    if (!types.includes(entry.semanticType)) continue;
+    out.push({ conceptId, entry, type: entry.semanticType });
+  }
+  out.sort((a, b) => a.conceptId.localeCompare(b.conceptId));
+  return out;
+}
+
+// Pronouns valid as a filler for a given role. self/listener are 1st/2nd
+// person and only fit ANIMATE-accepting roles; reference and unknown are
+// always offered (reference can stand in for any prior salient entity;
+// unknown is the wh-wildcard that turns the frame into a question).
+function pronounsFor(types: readonly RoleType[]): Pronoun[] {
+  const animateOk = types.includes("ANIMATE");
+  const out: Pronoun[] = [];
+  if (animateOk) out.push("self", "listener");
+  out.push("reference", "unknown");
+  return out;
+}
+
+// Default filler for a role: first compatible concept, falling back to
+// "unknown" when the lexicon has no matching entity. Returning unknown is
+// safe — it just means the seeded frame asks a question.
+function defaultFillerFor(spec: LanguageSpec, role: RoleSpec): RoleFiller {
+  const opts = conceptsFor(spec, role.types);
+  const first = opts[0];
+  if (first) return { type: first.type, conceptId: first.conceptId };
+  return "unknown";
+}
+
+function defaultRolesFor(
+  spec: LanguageSpec,
+  frame: FrameSpec,
+): Record<string, RoleFiller> {
+  const out: Record<string, RoleFiller> = {};
+  for (const role of frame.roles) {
+    out[role.name] = defaultFillerFor(spec, role);
+  }
+  return out;
+}
+
+function defaultFrameFor(
+  spec: LanguageSpec,
+  predicate: string,
+): FilledFrame {
+  const frame = FRAMES[predicate]!;
+  const isAction = frame.category === "action";
+  return {
+    predicate,
+    mood: isAction ? "declarative" : "declarative",
+    roles: defaultRolesFor(spec, frame),
+  };
+}
+
+// Round-trip a filler into the select-option string used by RoleEditor.
+// `concept:FLINT`, `pronoun:self`, `nested` are the three families.
+function fillerToToken(filler: RoleFiller): string {
+  if (isNestedFrame(filler)) return "nested";
+  if (isPronoun(filler)) return `pronoun:${filler}`;
+  if (isEntityRef(filler)) return `concept:${filler.conceptId}`;
+  return "";
+}
+
+// Default nested frame inserted when the user picks "[nested]" — a small
+// well-formed WANT statement, easy to edit further via the DSL textbox.
+function defaultNestedFrame(spec: LanguageSpec): FilledFrame {
+  return defaultFrameFor(spec, "WANT");
+}
+
+// ============================================================
 // Compose: build a frame, see the surface text
 // ============================================================
 
+const SEED_TEXT = formatFrameText(PARSE_SEED_FRAME);
+
 function ComposePanel() {
   const L = useLanguage();
-  const [text, setText] = useState<string>(() =>
-    formatFrameText(PARSE_SEED_FRAME),
-  );
+  // Frame state is the source of truth; the DSL textbox is a derived,
+  // bidirectionally-editable view. Structured controls mutate `frame`
+  // and reformat the text; text edits re-parse and update `frame`.
+  const [frame, setFrame] = useState<FilledFrame>(PARSE_SEED_FRAME);
+  const [text, setText] = useState<string>(SEED_TEXT);
+  const [parseError, setParseError] = useState<string | null>(null);
 
-  const result = useMemo(() => {
-    const trimmed = text.trim();
-    if (!trimmed) return { kind: "empty" as const };
+  const updateFromText = (next: string) => {
+    setText(next);
+    const trimmed = next.trim();
+    if (!trimmed) {
+      setParseError(null);
+      return;
+    }
     try {
-      const frame = parseFrameText(
+      const parsed = parseFrameText(
         trimmed,
         (id) => L.lexicon[id]?.semanticType,
       );
-      const gloss = glossFrame(L, frame);
-      return { kind: "ok" as const, frame, gloss };
+      setFrame(parsed);
+      setParseError(null);
     } catch (e) {
       const message =
         e instanceof FrameTextError || e instanceof Error
           ? e.message
           : String(e);
-      return { kind: "error" as const, message };
+      setParseError(message);
     }
-  }, [text, L]);
+  };
+
+  const updateFrame = (mut: (f: FilledFrame) => FilledFrame) => {
+    const next = mut(frame);
+    setFrame(next);
+    setText(formatFrameText(next));
+    setParseError(null);
+  };
+
+  // Recompute gloss on every render — `frame` is whatever the user has
+  // most recently committed (either via structured controls or a valid DSL
+  // edit). Errors don't disturb it.
+  const gloss = useMemo<FrameGloss | null>(() => {
+    try {
+      return glossFrame(L, frame);
+    } catch {
+      return null;
+    }
+  }, [frame, L]);
+
+  const spec = FRAMES[frame.predicate];
+  const isAction = spec?.category === "action";
+
+  // ── handlers for the structured controls ──────────────────────
+  const setPredicate = (id: string) => {
+    if (id === frame.predicate) return;
+    updateFrame(() => defaultFrameFor(L, id));
+  };
+
+  const setMood = (mood: "declarative" | "imperative") => {
+    if (mood === frame.mood) return;
+    updateFrame((f) => ({ ...f, mood }));
+  };
+
+  const setTense = (tense: "past" | "present" | "future") => {
+    updateFrame((f) => {
+      const next = { ...f };
+      if (tense === "present") delete next.tense;
+      else next.tense = tense;
+      return next;
+    });
+  };
+
+  const setNegated = (negated: boolean) => {
+    updateFrame((f) => {
+      const next = { ...f };
+      if (negated) next.negated = true;
+      else delete next.negated;
+      return next;
+    });
+  };
+
+  const setRoleFiller = (roleName: string, token: string) => {
+    updateFrame((f) => {
+      const role = FRAMES[f.predicate]!.roles.find((r) => r.name === roleName)!;
+      let nextFiller: RoleFiller;
+      if (token === "nested") {
+        nextFiller = { kind: "frame", frame: defaultNestedFrame(L) };
+      } else if (token.startsWith("pronoun:")) {
+        nextFiller = token.slice("pronoun:".length) as Pronoun;
+      } else if (token.startsWith("concept:")) {
+        const conceptId = token.slice("concept:".length);
+        const entry = L.lexicon[conceptId];
+        const type = (entry?.semanticType ?? role.types[0]) as RoleType;
+        const ref: EntityRef = { type, conceptId };
+        // Preserve plurality if the previous filler was a plural entity ref.
+        const prev = f.roles[roleName];
+        if (prev && isEntityRef(prev) && prev.number === "pl") ref.number = "pl";
+        nextFiller = ref;
+      } else {
+        return f;
+      }
+      // Switching one role to "unknown" must clear any other "unknown" —
+      // validateFilledFrame allows at most one wildcard.
+      const nextRoles: Record<string, RoleFiller> = { ...f.roles };
+      if (nextFiller === "unknown") {
+        for (const r of FRAMES[f.predicate]!.roles) {
+          if (r.name !== roleName && nextRoles[r.name] === "unknown") {
+            nextRoles[r.name] = defaultFillerFor(L, r);
+          }
+        }
+      }
+      nextRoles[roleName] = nextFiller;
+      return { ...f, roles: nextRoles };
+    });
+  };
+
+  const setRoleNumber = (roleName: string, number: "sg" | "pl") => {
+    updateFrame((f) => {
+      const filler = f.roles[roleName];
+      if (!filler || !isEntityRef(filler)) return f;
+      const nextRef: EntityRef = { type: filler.type, conceptId: filler.conceptId };
+      if (number === "pl") nextRef.number = "pl";
+      return { ...f, roles: { ...f.roles, [roleName]: nextRef } };
+    });
+  };
 
   return (
     <div className="panel">
       <div className="panel-head">
         <h3 className="panel-name">§ I.a — Compose</h3>
-        <span className="panel-flow">frame DSL → surface</span>
+        <span className="panel-flow">structured · frame → surface</span>
+      </div>
+
+      <div className="field">
+        <div className="field-label">Predicate</div>
+        <div className="pills">
+          {FRAME_LIST.map((f) => (
+            <button
+              key={f.id}
+              className="pill"
+              type="button"
+              aria-pressed={f.id === frame.predicate}
+              onClick={() => setPredicate(f.id)}
+              title={`${f.id} · ${f.category} · ${f.roles.map((r) => r.name).join(", ")}`}
+            >
+              {f.id}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="field compose-modifiers">
+        <div className="modifier-group">
+          <div className="field-label">Mood</div>
+          <div className="pills">
+            <button
+              className="pill"
+              type="button"
+              aria-pressed={frame.mood === "declarative"}
+              onClick={() => setMood("declarative")}
+            >
+              declarative
+            </button>
+            <button
+              className="pill"
+              type="button"
+              aria-pressed={frame.mood === "imperative"}
+              onClick={() => setMood("imperative")}
+              disabled={!isAction}
+              title={
+                isAction
+                  ? undefined
+                  : "imperative requires an action frame"
+              }
+            >
+              imperative
+            </button>
+          </div>
+        </div>
+        <div className="modifier-group">
+          <div className="field-label">Tense</div>
+          <div className="pills">
+            {(["past", "present", "future"] as const).map((t) => {
+              const active = (frame.tense ?? "present") === t;
+              return (
+                <button
+                  key={t}
+                  className="pill"
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setTense(t)}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="modifier-group">
+          <div className="field-label">Polarity</div>
+          <div className="pills">
+            <button
+              className="pill"
+              type="button"
+              aria-pressed={!frame.negated}
+              onClick={() => setNegated(false)}
+            >
+              affirmative
+            </button>
+            <button
+              className="pill"
+              type="button"
+              aria-pressed={!!frame.negated}
+              onClick={() => setNegated(true)}
+            >
+              negated
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="field">
+        <div className="field-label">Roles</div>
+        {spec ? (
+          <div className="roles">
+            {spec.roles.map((role) => (
+              <RoleEditor
+                key={role.name}
+                role={role}
+                filler={frame.roles[role.name]}
+                onSelect={(token) => setRoleFiller(role.name, token)}
+                onNumber={(n) => setRoleNumber(role.name, n)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="parse-status error">
+            <span className="glyph">×</span> unknown predicate "{frame.predicate}"
+          </div>
+        )}
       </div>
 
       <div className="field">
         <div className="field-label">Frame · DSL</div>
         <textarea
           className={`frame-dsl-input parse-input ${
-            result.kind === "error" ? "is-error" : ""
+            parseError ? "is-error" : ""
           }`}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => updateFromText(e.target.value)}
           rows={3}
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
           placeholder="PRED(role=filler, …) — e.g. WANT(wanter=self, desired=FLINT)"
         />
-        {result.kind === "ok" && (
+        {parseError ? (
+          <div className="parse-status error">
+            <span className="glyph">×</span> {parseError}
+          </div>
+        ) : (
           <div className="parse-status ok">
             <span className="glyph">✓</span> valid frame
-          </div>
-        )}
-        {result.kind === "error" && (
-          <div className="parse-status error">
-            <span className="glyph">×</span> {result.message}
-          </div>
-        )}
-        {result.kind === "empty" && (
-          <div className="parse-status empty">
-            <span className="glyph">·</span> awaiting input
           </div>
         )}
       </div>
@@ -337,7 +632,7 @@ function ComposePanel() {
               key={ex.dsl}
               className="pill"
               aria-pressed={ex.dsl === text.trim()}
-              onClick={() => setText(ex.dsl)}
+              onClick={() => updateFromText(ex.dsl)}
               title={ex.dsl}
               type="button"
             >
@@ -347,7 +642,95 @@ function ComposePanel() {
         </div>
       </div>
 
-      {result.kind === "ok" && <SurfaceOutput gloss={result.gloss} />}
+      {gloss && <SurfaceOutput gloss={gloss} />}
+    </div>
+  );
+}
+
+function RoleEditor({
+  role,
+  filler,
+  onSelect,
+  onNumber,
+}: {
+  role: RoleSpec;
+  filler: RoleFiller | undefined;
+  onSelect: (token: string) => void;
+  onNumber: (n: "sg" | "pl") => void;
+}) {
+  const L = useLanguage();
+  const concepts = conceptsFor(L, role.types);
+  const pronouns = pronounsFor(role.types);
+  const token = filler ? fillerToToken(filler) : "";
+  const isWild = filler === "unknown";
+  const isNested = filler !== undefined && isNestedFrame(filler);
+  const number =
+    filler && isEntityRef(filler) ? filler.number ?? "sg" : "sg";
+
+  return (
+    <div
+      className={`role-row ${isWild ? "is-wild" : ""} ${isNested ? "has-nested" : ""}`}
+    >
+      <div className="role-meta">
+        <span className="role-name">{role.name}</span>
+        <span className="role-types">{role.types.join("|")}</span>
+        <span className="role-grammar">· {role.grammar}</span>
+      </div>
+      <div className="role-controls">
+        <select
+          className="select"
+          value={token}
+          onChange={(e) => onSelect(e.target.value)}
+        >
+          <optgroup label="Concepts">
+            {concepts.map((c) => (
+              <option key={c.conceptId} value={`concept:${c.conceptId}`}>
+                {c.conceptId} ({c.entry.stem})
+              </option>
+            ))}
+            {concepts.length === 0 && (
+              <option value="" disabled>
+                — none in lexicon —
+              </option>
+            )}
+          </optgroup>
+          <optgroup label="Pronouns / wildcard">
+            {pronouns.map((p) => (
+              <option key={p} value={`pronoun:${p}`}>
+                {p === "unknown" ? "? unknown (wh-wildcard)" : p}
+              </option>
+            ))}
+          </optgroup>
+          {role.allowsNested && (
+            <optgroup label="Nested">
+              <option value="nested">[ nested frame ]</option>
+            </optgroup>
+          )}
+        </select>
+        {filler && isEntityRef(filler) && (
+          <div className="pills num-pills">
+            <button
+              className="pill"
+              type="button"
+              aria-pressed={number === "sg"}
+              onClick={() => onNumber("sg")}
+            >
+              sg
+            </button>
+            <button
+              className="pill"
+              type="button"
+              aria-pressed={number === "pl"}
+              onClick={() => onNumber("pl")}
+            >
+              pl
+            </button>
+          </div>
+        )}
+        {isNested && (
+          <span className="filler-hint">edit nested via DSL</span>
+        )}
+      </div>
     </div>
   );
 }

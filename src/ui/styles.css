@@ -1246,3 +1246,27 @@ textarea.frame-dsl-input {
 @media (max-width: 800px) {
   .morph-block.wide { grid-column: span 1; }
 }
+
+/* ============================================================
+   Compose modifier row (mood / tense / polarity)
+   ============================================================ */
+
+.compose-modifiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.compose-modifiers .modifier-group .field-label {
+  margin-bottom: 6px;
+}
+
+.role-controls .num-pills {
+  gap: 4px;
+}
+
+.role-controls .num-pills .pill {
+  padding: 2px 8px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
