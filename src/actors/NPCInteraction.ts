@@ -53,13 +53,21 @@ export const attachInteraction = (sprite: InteractiveSprite, npcId: NpcId) => {
     const detail = (ev as CustomEvent<{ speaker: NpcId; anim: string }>).detail;
     if (!detail || detail.speaker !== npcId) return;
     if (!sprite.scene) return;
+    // NPCs are spawned with a non-unit base scale (NPC_DISPLAY_HEIGHT /
+    // sprite.height), so tweening to a hardcoded 1.0 would snap them to raw
+    // pixel size and never restore. Capture the live base and yoyo back to it.
+    const baseX = sprite.scaleX;
+    const baseY = sprite.scaleY;
     sprite.scene.tweens.add({
       targets: sprite,
-      scaleX: { from: 1, to: 1.15 },
-      scaleY: { from: 1, to: 1.15 },
+      scaleX: { from: baseX, to: baseX * 1.15 },
+      scaleY: { from: baseY, to: baseY * 1.15 },
       duration: 100,
       yoyo: true,
       ease: 'Sine.InOut',
+      onComplete: () => {
+        sprite.setScale(baseX, baseY);
+      },
     });
   };
   window.addEventListener('fledgling:react', onReact);
