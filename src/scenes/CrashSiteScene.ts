@@ -72,10 +72,10 @@ export class CrashSiteScene extends Phaser.Scene {
     // distinct from the village proper.
     paintFill(this, 0, 280, CRASH_WIDTH, CRASH_HEIGHT - 280, 'grass', 0xc0e0b0);
 
-    // Wrecked boat on the beach (mid-sand).
-    this.add.image(320, 244, SpriteKeys.LOC_BOAT)
+    // Plane debris on the beach (mid-sand) — the player's wreck.
+    this.add.image(320, 244, SpriteKeys.LOC_PLANE_DEBRIS)
       .setOrigin(0.5, 1)
-      .setDisplaySize(128, 80)
+      .setDisplaySize(160, 96)
       .setRotation(0.18)
       .setDepth(Depths.BG_DECOR + 240);
 

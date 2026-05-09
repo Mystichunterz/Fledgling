@@ -6,6 +6,7 @@ export const SpriteKeys = {
   LOC_BEACON: 'loc_beacon',
   LOC_BEACON_OFF: 'loc_beacon_off',
   LOC_BOAT:   'loc_boat',
+  LOC_PLANE_DEBRIS: 'loc_plane_debris',
   LOC_BAKERY: 'loc_bakery',
   LOC_GUARDPOST: 'loc_guardpost',
   LOC_PLAYGROUND: 'loc_playground',
