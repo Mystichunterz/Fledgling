@@ -18,7 +18,7 @@ export const attachLabel = (
   el.style.cssText = `
     position: fixed; left: 0; top: 0;
     font-family: ui-monospace, "Cascadia Code", "Courier New", monospace;
-    font-size: 11px; color: #f2e6c9;
+    font-size: 14px; font-weight: 600; color: #f2e6c9;
     text-shadow: 0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 -1px 0 #000;
     white-space: nowrap; pointer-events: none; user-select: none;
     z-index: 500;
