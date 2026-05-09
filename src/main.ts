@@ -4,22 +4,33 @@ import { _debugTransitionState, _debugResetTransition } from './engine/transitio
 import { GameRegistry } from './state/GameRegistry';
 import { SceneKeys } from './assets/keys';
 import { spawnNpcsForScene } from './sim/spawnNpcs';
+import type { NpcSceneKey } from './sim/npcRoster';
 import { installHandoverListener } from './state/handovers';
 import { initDiary } from './sim/diary';
 import { DiaryOverlay } from './ui/DiaryOverlay';
+import { initFlags } from './state/dialogueFlags';
 
+initFlags();
 installHandoverListener();
 initDiary();
 new DiaryOverlay();
 
 const game = new Phaser.Game(gameConfig);
 
-// Spawn NPCs whenever VillageScene's create() runs — keeps the integration
-// out of VillageScene.ts itself so engine and sim lanes stay separable.
+// Spawn NPCs whenever a world scene's create() runs. Keeping the integration
+// here means scene files don't need to know about the roster.
+const NPC_SCENE_BINDINGS: Array<[string, NpcSceneKey]> = [
+  [SceneKeys.CRASH_SITE, 'crash_site'],
+  [SceneKeys.VILLAGE, 'village'],
+  [SceneKeys.HUT, 'hut'],
+  [SceneKeys.LIGHTHOUSE, 'lighthouse'],
+];
 game.events.once('ready', () => {
-  const village = game.scene.getScene(SceneKeys.VILLAGE);
-  if (!village) return;
-  village.events.on('create', () => spawnNpcsForScene(village, 'village'));
+  for (const [sceneKey, npcSceneKey] of NPC_SCENE_BINDINGS) {
+    const scene = game.scene.getScene(sceneKey);
+    if (!scene) continue;
+    scene.events.on('create', () => spawnNpcsForScene(scene, npcSceneKey));
+  }
 });
 
 // Dev console helpers — type `window.__fledgling.state()` etc.

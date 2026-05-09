@@ -1,75 +1,81 @@
-import type { NpcId, NpcArchetype, ItemKind } from './dialogueTypes';
+import type { NpcId, ItemKind } from './dialogueTypes';
 
-export type NpcSceneKey = 'village' | 'crash_site' | 'hut' | 'lighthouse';
+export type NpcSceneKey = 'crash_site' | 'village' | 'hut' | 'lighthouse';
+
+export type NpcArchetype = 'child' | 'elder_woman' | 'man' | 'chief';
 
 export interface NpcDef {
   id: NpcId;
   displayName: string;
   archetype: NpcArchetype;
-  occupation?: string;
   scene: NpcSceneKey;
   spawn: { x: number; y: number };
+  // The critical item this NPC hands over (Lemu/Toka/Senu only).
   holdsItem?: ItemKind;
+  // The filler item this NPC asks for, fetched from elsewhere.
+  wantsItem?: 'fruit' | 'water' | 'rope' | 'basket';
   isClimaxNpc?: boolean;
-  dialogueRootId: string;
   spriteColor: number;
 }
 
-// Spawn coords align with VillageScene landmarks (1280x720 world):
-//   bakery (240,180), guard (800,180), shrine (240,380), play (800,380), farm (320,580).
-// Each NPC sits a few pixels south of their landmark so they're visually "in front".
+// Cast per agents/story-dialogue-trees.md §2. Spawn coords are placeholders
+// for the village landmarks (bakery/well/firepit/shrine/play); engine T13 owns
+// the canonical layout and may move these.
 export const NPC_ROSTER: NpcDef[] = [
   {
-    id: 'npc.pemi',
+    id: 'pemi',
     displayName: 'Pemi',
     archetype: 'child',
-    scene: 'village',
-    spawn: { x: 640, y: 200 },
-    dialogueRootId: 'PEM_INITIAL',
+    scene: 'crash_site',
+    spawn: { x: 350, y: 270 },
     spriteColor: 0xf5d97a,
   },
   {
-    id: 'npc.naro',
+    id: 'naro',
     displayName: 'Naro',
     archetype: 'elder_woman',
-    occupation: 'baker',
-    holdsItem: 'wood',
+    wantsItem: 'fruit',
     scene: 'village',
-    spawn: { x: 240, y: 220 },
-    dialogueRootId: 'NAR_INITIAL',
+    spawn: { x: 240, y: 380 },   // well
     spriteColor: 0xe5a07a,
   },
   {
-    id: 'npc.lemu',
+    id: 'lemu',
     displayName: 'Lemu',
     archetype: 'elder_woman',
-    occupation: 'farmer',
     holdsItem: 'oil',
+    wantsItem: 'water',
     scene: 'village',
-    spawn: { x: 340, y: 610 },
-    dialogueRootId: 'LEM_INITIAL',
+    spawn: { x: 800, y: 380 },   // firepit
     spriteColor: 0xc4d76a,
   },
   {
-    id: 'npc.toka',
+    id: 'toka',
     displayName: 'Toka',
     archetype: 'man',
-    occupation: 'guard',
     holdsItem: 'flint',
+    wantsItem: 'rope',
     scene: 'village',
-    spawn: { x: 800, y: 220 },
-    dialogueRootId: 'TOK_INITIAL',
+    spawn: { x: 640, y: 380 },   // shrine
     spriteColor: 0x9aa3c7,
   },
   {
-    id: 'npc.hala',
+    id: 'senu',
+    displayName: 'Senu',
+    archetype: 'man',
+    holdsItem: 'wood',
+    wantsItem: 'basket',
+    scene: 'village',
+    spawn: { x: 160, y: 540 },   // forest (south-west)
+    spriteColor: 0x7a8a6a,
+  },
+  {
+    id: 'hala',
     displayName: 'Hala',
     archetype: 'chief',
-    occupation: 'shrine-tender',
-    scene: 'village',
-    spawn: { x: 240, y: 410 },
+    scene: 'lighthouse',
+    spawn: { x: 240, y: 200 },
     isClimaxNpc: true,
-    dialogueRootId: 'HAL_INITIAL',
     spriteColor: 0xb893d4,
   },
 ];

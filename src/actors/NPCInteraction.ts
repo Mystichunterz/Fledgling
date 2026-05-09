@@ -4,6 +4,7 @@ import { DialogueOverlay } from '../ui/DialogueOverlay';
 import { DIALOGUE_TREES } from '../sim/dialogueTrees';
 import { npcById } from '../sim/npcRoster';
 import type { NpcId } from '../sim/dialogueTypes';
+import { matchesTrigger } from '../state/dialogueFlags';
 import { INTERACTION_RADIUS } from '../engine/highlight';
 import { GameRegistry } from '../state/GameRegistry';
 
@@ -16,12 +17,22 @@ const ensureSingletons = () => {
   return { menu: sharedMenu, overlay: sharedOverlay };
 };
 
+// Pick the entry node for an NPC by walking the tree's `entries` list in
+// priority order and matching each node's trigger against current flags.
+// Falls back to the last entry (most-general phase) if nothing matches.
+const resolveEntry = (npcId: NpcId): string | null => {
+  const tree = DIALOGUE_TREES[npcId];
+  if (!tree) return null;
+  for (const id of tree.entries) {
+    const node = tree.nodes[id];
+    if (node && matchesTrigger(node.trigger)) return id;
+  }
+  return tree.entries[tree.entries.length - 1] ?? null;
+};
+
 export const attachInteraction = (sprite: Phaser.GameObjects.Rectangle, npcId: NpcId) => {
   const { menu, overlay } = ensureSingletons();
 
-  // Explicit hit area in local coords. Origin is (0.5, 1) so the rectangle
-  // spans (-w/2, -h, w, h) relative to the sprite's position. Pad it
-  // generously so users don't need pixel-perfect aim.
   const w = sprite.width;
   const h = sprite.height;
   const pad = 8;
@@ -31,10 +42,28 @@ export const attachInteraction = (sprite: Phaser.GameObjects.Rectangle, npcId: N
     useHandCursor: true,
   });
 
+  // Listen for react animation events for our NPC and tween the sprite.
+  // Placeholder until per-NPC sprite animations exist.
+  const onReact = (ev: Event) => {
+    const detail = (ev as CustomEvent<{ speaker: NpcId; anim: string }>).detail;
+    if (!detail || detail.speaker !== npcId) return;
+    if (!sprite.scene) return;
+    sprite.scene.tweens.add({
+      targets: sprite,
+      scaleX: { from: 1, to: 1.15 },
+      scaleY: { from: 1, to: 1.15 },
+      duration: 100,
+      yoyo: true,
+      ease: 'Sine.InOut',
+    });
+  };
+  window.addEventListener('fledgling:react', onReact);
+  sprite.once(Phaser.GameObjects.Events.DESTROY, () => {
+    window.removeEventListener('fledgling:react', onReact);
+  });
+
   const radiusSq = INTERACTION_RADIUS * INTERACTION_RADIUS;
   sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-    // Same proximity gate as the highlight (bbox center vs player), so the
-    // NPC is only clickable while their glow is visible.
     const bb = sprite.getBounds();
     const dx = bb.centerX - GameRegistry.playerX;
     const dy = bb.centerY - GameRegistry.playerY;
@@ -45,10 +74,15 @@ export const attachInteraction = (sprite: Phaser.GameObjects.Rectangle, npcId: N
         id: 'talk',
         label: 'Talk',
         onPick: () => {
-          const npc = npcById(npcId);
           const tree = DIALOGUE_TREES[npcId];
-          if (!tree) return;
-          overlay.open(tree, npc.dialogueRootId);
+          const entryId = resolveEntry(npcId);
+          if (!tree || !entryId) {
+            console.warn('[NPCInteraction] no dialogue for', npcId);
+            return;
+          }
+          // npc looked up just to validate it exists in the roster
+          npcById(npcId);
+          overlay.open(tree, entryId);
         },
       },
     ]);

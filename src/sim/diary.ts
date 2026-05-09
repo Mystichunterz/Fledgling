@@ -1,4 +1,4 @@
-import type { NpcId, DialogueLine } from './dialogueTypes';
+import type { NpcId } from './dialogueTypes';
 
 const STORAGE_KEY = 'fledgling:diary:v1';
 const MAX_CONTEXTS = 3;
@@ -14,7 +14,7 @@ export interface DiaryEntry {
 
 interface EncounterDetail {
   speaker: NpcId;
-  line: DialogueLine;
+  line: string;
   nodeId: string;
 }
 
@@ -47,6 +47,7 @@ const notify = () => subscribers.forEach(cb => cb());
 export const tokenise = (text: string): string[] => {
   return text
     .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
     .replace(/[.,!?;:"'—…()]/g, ' ')
     .toLowerCase()
     .split(/\s+/)
@@ -57,10 +58,7 @@ const onEncounter = (ev: Event) => {
   const detail = (ev as CustomEvent<EncounterDetail>).detail;
   if (!detail) return;
   const { speaker, line } = detail;
-  // Source text: prefer conlang once T11 wires it; until then, line.en is
-  // tokenised as a placeholder so the data flow is exercised end-to-end.
-  const sourceText = line.conlang ?? line.en;
-  const tokens = tokenise(sourceText);
+  const tokens = tokenise(line);
   if (tokens.length === 0) return;
   const now = Date.now();
   const seen = new Set<string>();
@@ -70,8 +68,8 @@ const onEncounter = (ev: Event) => {
     const existing = data.get(token);
     if (existing) {
       existing.encounters += 1;
-      if (!existing.contexts.includes(sourceText)) {
-        existing.contexts.push(sourceText);
+      if (!existing.contexts.includes(line)) {
+        existing.contexts.push(line);
         if (existing.contexts.length > MAX_CONTEXTS) existing.contexts.shift();
       }
     } else {
@@ -80,7 +78,7 @@ const onEncounter = (ev: Event) => {
         firstHeardFrom: speaker,
         firstHeardAt: now,
         encounters: 1,
-        contexts: [sourceText],
+        contexts: [line],
         playerGuess: '',
       });
     }
