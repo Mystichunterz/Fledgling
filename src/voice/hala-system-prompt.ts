@@ -67,11 +67,12 @@ export function buildHalaPromptFromWorld(
   visitedHut: boolean,
   recentLines?: HalaPromptContext['recentLines'],
 ): string {
-  return buildHalaSystemPrompt({
+  const ctx: HalaPromptContext = {
     predecessorName: world?.predecessorName ?? 'Maren',
     itemsCollected: world?.itemsCollected ?? [],
     beaconLit: world?.beaconLit ?? false,
     visitedHut,
-    recentLines,
-  });
+  };
+  if (recentLines) ctx.recentLines = recentLines;
+  return buildHalaSystemPrompt(ctx);
 }

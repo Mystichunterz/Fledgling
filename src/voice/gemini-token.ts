@@ -17,11 +17,12 @@ export interface MintedToken {
 export async function mintGeminiToken(
   signal?: AbortSignal,
 ): Promise<MintedToken> {
-  const r = await fetch(TOKEN_ENDPOINT, {
+  const init: RequestInit = {
     method: 'GET',
     cache: 'no-store',
-    signal,
-  });
+  };
+  if (signal) init.signal = signal;
+  const r = await fetch(TOKEN_ENDPOINT, init);
   if (!r.ok) {
     let detail = '';
     try {
