@@ -20,9 +20,11 @@ import {
   shortAffix,
   uniqueWords,
 } from "./phonology.js";
+import { customLanguageForSeed } from "./custom-languages.js";
 
 // Re-export so callers don't have to import from prng directly.
 export { randomSeedString };
+export { customLanguageNames } from "./custom-languages.js";
 
 // Concept inventory the random language must cover. v2 adds verbs for the
 // new frames (SEE/SAY/MAKE/EAT) and a few new content nouns; the legacy
@@ -390,6 +392,13 @@ export function randomLanguage(
   seed?: string,
   difficulty: Difficulty = "full",
 ): LanguageSpec {
+  // Hand-crafted real-language seeds (e.g. "Malay") short-circuit
+  // generation: when the seed matches a registered language, return that
+  // spec verbatim. Difficulty is ignored — each custom spec carries its own.
+  if (seed !== undefined && seed !== "") {
+    const custom = customLanguageForSeed(seed);
+    if (custom) return custom;
+  }
   const rngs = makeSubsystemRngs(seed);
   for (let attempt = 0; attempt < 200; attempt++) {
     const candidate =
