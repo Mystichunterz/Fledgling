@@ -35,14 +35,16 @@ type InteractiveSprite = Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle
 export const attachInteraction = (sprite: InteractiveSprite, npcId: NpcId) => {
   const { menu, overlay } = ensureSingletons();
 
-  // Hit area is in the GameObject's local (unscaled) space, so use the
-  // source frame size — Phaser maps pointer coords through the transform
-  // (which includes scale from setDisplaySize) before testing the hit area.
+  // Hit area in the GameObject's source-frame space: Phaser's
+  // pointWithinHitArea adds displayOrigin to the transformed pointer coords
+  // BEFORE testing, which collapses any origin offset. So the hit area must
+  // sit at (0, 0) to (width, height) regardless of origin — origin-shifted
+  // values like (-w/2, -h) push it off the sprite (above, in our case).
   const w = sprite.width;
   const h = sprite.height;
   const pad = 8;
   sprite.setInteractive({
-    hitArea: new Phaser.Geom.Rectangle(-w / 2 - pad, -h - pad, w + pad * 2, h + pad * 2),
+    hitArea: new Phaser.Geom.Rectangle(-pad, -pad, w + pad * 2, h + pad * 2),
     hitAreaCallback: Phaser.Geom.Rectangle.Contains,
     useHandCursor: true,
   });
@@ -82,7 +84,7 @@ export const attachInteraction = (sprite: InteractiveSprite, npcId: NpcId) => {
     const dy = bb.centerY - GameRegistry.playerY;
     if (dx * dx + dy * dy > radiusSq) return;
     pointer.event?.stopPropagation?.();
-    menu.open(sprite.scene, sprite.x, sprite.y, [
+    menu.open(sprite.scene, bb.centerX, bb.centerY, [
       {
         id: 'talk',
         label: 'Talk',
@@ -93,7 +95,6 @@ export const attachInteraction = (sprite: InteractiveSprite, npcId: NpcId) => {
             console.warn('[NPCInteraction] no dialogue for', npcId);
             return;
           }
-          // npc looked up just to validate it exists in the roster
           npcById(npcId);
           overlay.open(tree, entryId);
         },

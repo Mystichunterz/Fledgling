@@ -24,6 +24,13 @@ export class InteractionMenu {
     `;
     document.body.appendChild(this.root);
 
+    // Stop mousedowns inside the menu from reaching the window-level
+    // clickAwayHandler. The contains() guard there should also handle this,
+    // but with transform: translate on the root it's possible for ev.target
+    // to resolve to a sibling/ancestor and trip a spurious close — which
+    // hides the menu before the Talk button's click event can fire.
+    this.root.addEventListener('mousedown', (ev) => ev.stopPropagation());
+
     this.clickAwayHandler = (ev: MouseEvent) => {
       if (!this.isOpen) return;
       if (this.root.contains(ev.target as Node)) return;
@@ -62,8 +69,11 @@ export class InteractionMenu {
     });
 
     const screen = this.worldToScreen(scene, worldX, worldY);
-    this.root.style.left = `${screen.x + 12}px`;
-    this.root.style.top = `${screen.y - 12}px`;
+    this.root.style.left = `${screen.x}px`;
+    this.root.style.top = `${screen.y}px`;
+    // Centre the menu on the anchor (NPC's bounding-box centre) so it sits on
+    // the proximity highlight rather than floating above the sprite.
+    this.root.style.transform = 'translate(-50%, -50%)';
     this.root.style.display = 'block';
     this.isOpen = true;
     // Defer the click-away listener so the click that opened the menu doesn't immediately close it.

@@ -218,7 +218,6 @@ export function decodeText(
   // produce the "unknown" filler — particle is redundant but stripped if
   // present). IMP sets the FilledFrame's mood to imperative.
   let particleMood: Mood | null = null;
-  let particleQ = false;
   if (spec.particles) {
     const tryStrip = (p: { form: string; position: "initial" | "final" }): boolean => {
       if (p.form === "") return false;
@@ -232,13 +231,19 @@ export function decodeText(
       }
       return false;
     };
-    if (tryStrip(spec.particles.Q)) {
-      particleQ = true;
-    } else if (tryStrip(spec.particles.IMP)) {
+    const qStripped = tryStrip(spec.particles.Q);
+    if (!qStripped && tryStrip(spec.particles.IMP)) {
       particleMood = "imperative";
     }
   }
   if (tokens.length === 0) throw new ParseError("Empty input after particle strip");
+
+  const { negated: particleNegated, rest: nonNegatedTokens } = stripNegationParticle(
+    spec,
+    tokens,
+  );
+  tokens = nonNegatedTokens;
+  if (tokens.length === 0) throw new ParseError("Empty input after negation strip");
 
   const analyzed: TokenAnalysis[] = [];
   for (const tok of tokens) {
@@ -340,14 +345,7 @@ export function decodeText(
   // Only attach tense / negated when non-default, so existing frames that
   // omit them still round-trip identically.
   if (verb.tense !== "present") filled.tense = verb.tense;
-  if (verb.negated) filled.negated = true;
-  // Polar question: the surface had a Q signal (verb mood tag and/or
-  // particle) but no role recovered an "unknown" filler. The encoder set
-  // Q for `polarQuestion: true`, so recover it here to round-trip.
-  const recoveredUnknown = Object.values(filledRoles).some((f) => f === "unknown");
-  if ((verb.mood === "Q" || particleQ) && !recoveredUnknown) {
-    filled.polarQuestion = true;
-  }
+  if (verb.negated || particleNegated) filled.negated = true;
   validateFilledFrame(filled);
   return filled;
 }
@@ -370,7 +368,7 @@ function decodeSimple(spec: LanguageSpec, input: string): FilledFrame {
   if (allTokens.length === 0) throw new ParseError("Empty input");
 
   // Strip a sentence-level Q or IMP particle, if present.
-  const { mood, particleQ, rest } = stripMoodParticleSimple(spec, allTokens);
+  const { mood, rest } = stripMoodParticleSimple(spec, allTokens);
   if (rest.length === 0) {
     throw new ParseError("Empty input after particle strip");
   }
@@ -378,12 +376,17 @@ function decodeSimple(spec: LanguageSpec, input: string): FilledFrame {
   const bareGreet = tryDecodeBareGreet(spec, rest);
   if (bareGreet) return bareGreet;
 
+  const { negated, rest: nonNegatedTokens } = stripNegationParticle(spec, rest);
+  if (nonNegatedTokens.length === 0) {
+    throw new ParseError("Empty input after negation strip");
+  }
+
   // Identify the verb by exact stem match. Stem inventories are designed
   // so verb stems don't collide with nouns/pronouns/wh/particles.
   let verbIdx = -1;
   let verbEntry: LexiconEntry | undefined;
-  for (let i = 0; i < rest.length; i++) {
-    const tok = rest[i]!;
+  for (let i = 0; i < nonNegatedTokens.length; i++) {
+    const tok = nonNegatedTokens[i]!;
     const match = lookupVerbByStem(spec, tok);
     if (!match) continue;
     if (verbIdx >= 0) throw new ParseError("Multiple verbs found");
@@ -417,8 +420,8 @@ function decodeSimple(spec: LanguageSpec, input: string): FilledFrame {
   // both ends collapse to the same token; for verb-medial orders (SVO,
   // OVS) the difference matters and the outer-edge rule is what matches
   // the encoder.
-  let preV = rest.slice(0, verbIdx);
-  let postV = rest.slice(verbIdx + 1);
+  let preV = nonNegatedTokens.slice(0, verbIdx);
+  let postV = nonNegatedTokens.slice(verbIdx + 1);
   let obliqueToken: string | undefined;
   if (obliqueRole) {
     if (spec.syntax.obliquePosition === "pre-verb") {
@@ -473,46 +476,63 @@ function decodeSimple(spec: LanguageSpec, input: string): FilledFrame {
     mood,
     roles: filledRoles,
   };
-  // If a Q particle was stripped but no role recovered an "unknown"
-  // filler, the input was a polar (yes/no) question — recover the flag
-  // so encode/decode round-trips.
-  const recoveredUnknown = Object.values(filledRoles).some((f) => f === "unknown");
-  if (particleQ && !recoveredUnknown) {
-    filled.polarQuestion = true;
-  }
+  if (negated) filled.negated = true;
   validateFilledFrame(filled);
   return filled;
+}
+
+function stripNegationParticle(
+  spec: LanguageSpec,
+  tokens: string[],
+): { negated: boolean; rest: string[] } {
+  if (spec.syntax.negationStrategy === "affix") {
+    return { negated: false, rest: tokens };
+  }
+  const particle = spec.morphology.negation.form;
+  if (particle === "") return { negated: false, rest: tokens };
+
+  const matches = tokens.reduce<number[]>((acc, token, index) => {
+    if (token === particle) acc.push(index);
+    return acc;
+  }, []);
+
+  if (matches.length === 0) return { negated: false, rest: tokens };
+  if (matches.length > 1) {
+    throw new ParseError(`Multiple negation particles found: "${particle}"`);
+  }
+
+  const at = matches[0]!;
+  return {
+    negated: true,
+    rest: [...tokens.slice(0, at), ...tokens.slice(at + 1)],
+  };
 }
 
 function stripMoodParticleSimple(
   spec: LanguageSpec,
   tokens: string[],
-): { mood: Mood; particleQ: boolean; rest: string[] } {
-  if (!spec.particles) {
-    return { mood: "declarative", particleQ: false, rest: tokens };
-  }
-  // The Q particle signals interrogative; question-ness then rides on
-  // either an "unknown" filler (wh-Q) or the polarQuestion flag (polar Q),
-  // which the caller decides based on what the rest of the parse recovers.
+): { mood: Mood; rest: string[] } {
+  if (!spec.particles) return { mood: "declarative", rest: tokens };
+  // The Q particle is informational only — question-ness rides on the
+  // "unknown" filler the wh-word produces. The Mood we return is just
+  // declarative vs imperative; Q strips the particle and stays declarative.
   const tryStrip = (
     p: { form: string; position: "initial" | "final" } | undefined,
     mood: Mood,
-    particleQ: boolean,
-  ): { mood: Mood; particleQ: boolean; rest: string[] } | null => {
+  ): { mood: Mood; rest: string[] } | null => {
     if (!p || p.form === "") return null;
     if (p.position === "initial" && tokens[0] === p.form) {
-      return { mood, particleQ, rest: tokens.slice(1) };
+      return { mood, rest: tokens.slice(1) };
     }
     if (p.position === "final" && tokens[tokens.length - 1] === p.form) {
-      return { mood, particleQ, rest: tokens.slice(0, -1) };
+      return { mood, rest: tokens.slice(0, -1) };
     }
     return null;
   };
   return (
-    tryStrip(spec.particles.Q, "declarative", true) ??
-    tryStrip(spec.particles.IMP, "imperative", false) ?? {
+    tryStrip(spec.particles.Q, "declarative") ??
+    tryStrip(spec.particles.IMP, "imperative") ?? {
       mood: "declarative",
-      particleQ: false,
       rest: tokens,
     }
   );

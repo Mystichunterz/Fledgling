@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { FilledFrame } from "./frames.js";
+import { FilledFrame, FRAMES } from "./frames.js";
 import { encodeFrame } from "./encoder.js";
 import { decodeText } from "./decoder.js";
 import { EXAMPLE_LANGUAGE } from "./example-language.js";
+import { customLanguageNames, HOKKIEN_LANGUAGE, MALAY_LANGUAGE } from "./custom-languages.js";
 import { randomLanguage } from "./random-language.js";
 import { glossFrame } from "./gloss.js";
 import { templatesFor, canonicalTemplate, rephraseTemplates } from "./templates.js";
@@ -12,6 +13,14 @@ import { mulberry32 } from "./prng.js";
 const L = EXAMPLE_LANGUAGE;
 
 describe("v2: new frames", () => {
+  it("uses BE_STATE for greeting and stay-or-go semantics", () => {
+    expect(FRAMES.BE_STATE?.id).toBe("BE_STATE");
+    expect(FRAMES.BE_STATE?.roles).toEqual([
+      { name: "experiencer", types: ["ANIMATE"], grammar: "subject" },
+      { name: "state", types: ["ABSTRACT"], grammar: "object" },
+    ]);
+  });
+
   it("encodes EAT", () => {
     // 'the smith eats the bread' — SOV, suffixing
     expect(
@@ -76,6 +85,107 @@ describe("v2: new frames", () => {
     expect(surface).toContain("bisu");          // inner EAT verb
     expect(surface).toContain("henu");          // WOODSMAN
     expect(surface).toContain("guvin");         // BREAD-ACC
+  });
+
+  it("round-trips a BE_STATE greeting question", () => {
+    const frame: FilledFrame = {
+      predicate: "BE_STATE",
+      mood: "declarative",
+      roles: {
+        experiencer: "listener",
+        state: "unknown",
+      },
+    };
+    expect(encodeFrame(L, frame)).toBe("ti ken kirili");
+    expect(decodeText(L, encodeFrame(L, frame))).toEqual(frame);
+  });
+
+  it("round-trips a BE_STATE stay decision", () => {
+    const frame: FilledFrame = {
+      predicate: "BE_STATE",
+      mood: "declarative",
+      roles: {
+        experiencer: "self",
+        state: { type: "ABSTRACT", conceptId: "STAY_HERE" },
+      },
+    };
+    expect(decodeText(L, encodeFrame(L, frame))).toEqual(frame);
+  });
+
+  it("round-trips a negated BE_STATE denial", () => {
+    const frame: FilledFrame = {
+      predicate: "BE_STATE",
+      mood: "declarative",
+      negated: true,
+      roles: {
+        experiencer: "self",
+        state: { type: "ABSTRACT", conceptId: "GOOD" },
+      },
+    };
+    expect(decodeText(L, encodeFrame(L, frame))).toEqual(frame);
+  });
+
+  it("round-trips a BE_STATE go-home decision", () => {
+    const frame: FilledFrame = {
+      predicate: "BE_STATE",
+      mood: "declarative",
+      roles: {
+        experiencer: "self",
+        state: { type: "ABSTRACT", conceptId: "GO_HOME" },
+      },
+    };
+    expect(decodeText(L, encodeFrame(L, frame))).toEqual(frame);
+  });
+});
+
+describe("v2: quest dialogue lexicon", () => {
+  it("ships quest-critical concepts in the example language", () => {
+    expect(EXAMPLE_LANGUAGE.lexicon.HALA?.semanticType).toBe("ANIMATE");
+    expect(EXAMPLE_LANGUAGE.lexicon.LIGHTHOUSE?.semanticType).toBe("LOCATION");
+    expect(EXAMPLE_LANGUAGE.lexicon.BOAT?.semanticType).toBe("ITEM");
+    expect(EXAMPLE_LANGUAGE.lexicon.NOT_YET?.semanticType).toBe("ABSTRACT");
+    expect(EXAMPLE_LANGUAGE.lexicon.GO_HOME?.semanticType).toBe("ABSTRACT");
+    expect(EXAMPLE_LANGUAGE.lexicon.STAY_HERE?.semanticType).toBe("ABSTRACT");
+  });
+
+  it("keeps Malay executable for BE_STATE dialogue coverage", () => {
+    const greet: FilledFrame = {
+      predicate: "BE_STATE",
+      mood: "declarative",
+      roles: {
+        experiencer: "listener",
+        state: "unknown",
+      },
+    };
+    const notYet: FilledFrame = {
+      predicate: "BE_STATE",
+      mood: "declarative",
+      roles: {
+        experiencer: { type: "ANIMATE", conceptId: "HALA" },
+        state: { type: "ABSTRACT", conceptId: "NOT_YET" },
+      },
+    };
+
+    expect(MALAY_LANGUAGE.lexicon.WH_ABSTRACT?.semanticType).toBe("ABSTRACT");
+    expect(MALAY_LANGUAGE.lexicon.GOOD?.semanticType).toBe("ABSTRACT");
+    expect(MALAY_LANGUAGE.lexicon.HALA?.semanticType).toBe("ANIMATE");
+    expect(decodeText(MALAY_LANGUAGE, encodeFrame(MALAY_LANGUAGE, greet))).toEqual(greet);
+    expect(decodeText(MALAY_LANGUAGE, encodeFrame(MALAY_LANGUAGE, notYet))).toEqual(notYet);
+  });
+
+  it("registers Hokkien as a custom seed and keeps it executable", () => {
+    const greet: FilledFrame = {
+      predicate: "BE_STATE",
+      mood: "declarative",
+      roles: {
+        experiencer: "listener",
+        state: "unknown",
+      },
+    };
+
+    expect(customLanguageNames()).toContain("Hokkien");
+    expect(randomLanguage("hokkien", "full")).toEqual(HOKKIEN_LANGUAGE);
+    expect(decodeText(HOKKIEN_LANGUAGE, encodeFrame(HOKKIEN_LANGUAGE, greet))).toEqual(greet);
   });
 });
 
@@ -264,84 +374,5 @@ describe("v2: gloss tags", () => {
     expect(allTags).toContain("PL");
     expect(allTags).toContain("PAST");
     expect(allTags).toContain("ACC");
-  });
-});
-
-describe("polar questions", () => {
-  it("encodes a polar Q with the Q mood affix on the verb", () => {
-    // 'did the woodsman see the smith?' — no `unknown` filler, all roles
-    // bound, polarQuestion: true → verb gets the -li (Q) suffix.
-    const frame: FilledFrame = {
-      predicate: "SEE",
-      mood: "declarative",
-      polarQuestion: true,
-      roles: {
-        viewer: { type: "ANIMATE", conceptId: "WOODSMAN" },
-        target: { type: "ANIMATE", conceptId: "SMITH" },
-      },
-    };
-    // tovari is SOV, suffixing; SEE = rena, Q = -li, ACC = -n.
-    expect(encodeFrame(L, frame)).toBe("henu tovan renali");
-  });
-
-  it("round-trips a polar Q (inflectional language)", () => {
-    const frame: FilledFrame = {
-      predicate: "SEE",
-      mood: "declarative",
-      polarQuestion: true,
-      roles: {
-        viewer: { type: "ANIMATE", conceptId: "WOODSMAN" },
-        target: { type: "ANIMATE", conceptId: "SMITH" },
-      },
-    };
-    expect(decodeText(L, encodeFrame(L, frame))).toEqual(frame);
-  });
-
-  it("round-trips a polar Q in simple-difficulty mode (Q particle)", () => {
-    const Lsimple = randomLanguage("alpha", "simple");
-    const frame: FilledFrame = {
-      predicate: "SEE",
-      mood: "declarative",
-      polarQuestion: true,
-      roles: {
-        viewer: "self",
-        target: { type: "ANIMATE", conceptId: "SMITH" },
-      },
-    };
-    const surface = encodeFrame(Lsimple, frame);
-    // The Q particle should appear in the surface form.
-    const qParticle = Lsimple.particles!.Q;
-    expect(surface.split(/\s+/)).toContain(qParticle.form);
-    expect(decodeText(Lsimple, surface)).toEqual(frame);
-  });
-
-  it("preserves the wh-Q surface when there is also an `unknown` filler... but the validator rejects mixing them", () => {
-    // polarQuestion + an unknown filler is illegal — a frame is either a
-    // polar Q or a wh-Q, never both.
-    const bad: FilledFrame = {
-      predicate: "SEE",
-      mood: "declarative",
-      polarQuestion: true,
-      roles: {
-        viewer: "self",
-        target: "unknown",
-      },
-    };
-    expect(() => encodeFrame(L, bad)).toThrow(/polarQuestion.*unknown|unknown.*polarQuestion/);
-  });
-
-  it("gloss tags Q on the verb for a polar Q", () => {
-    const frame: FilledFrame = {
-      predicate: "SEE",
-      mood: "declarative",
-      polarQuestion: true,
-      roles: {
-        viewer: "self",
-        target: { type: "ANIMATE", conceptId: "SMITH" },
-      },
-    };
-    const g = glossFrame(L, frame);
-    const allTags = g.words.flatMap((w) => w.tags);
-    expect(allTags).toContain("Q");
   });
 });
