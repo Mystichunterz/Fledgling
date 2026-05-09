@@ -37,19 +37,20 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // The player spritesheet's frames are cropped too high — there's a gap
-    // above the head and the feet sit at the frame bottom. Shift the crop
-    // window down AND reduce its height by the same amount so we trim the
-    // top gap without bleeding into the next row's character below.
-    const PLAYER_FRAME_Y_SHIFT = 25;
+    // The player spritesheet's frames have a gap above the head AND the
+    // feet bleed into the 2-px spacing below the cell. Shift cutY down to
+    // trim the head gap and extend cutHeight past the cell boundary so the
+    // feet are recovered. Net change to cutHeight = -TOP_TRIM + BOTTOM_EXTEND.
+    const PLAYER_FRAME_TOP_TRIM = 25;
+    const PLAYER_FRAME_BOTTOM_EXTEND = 8;
     const playerTex = this.textures.get(SpriteKeys.PLAYER);
     for (const name of playerTex.getFrameNames()) {
       const frame = playerTex.frames[name];
       frame.setSize(
         frame.cutWidth,
-        frame.cutHeight - PLAYER_FRAME_Y_SHIFT,
+        frame.cutHeight - PLAYER_FRAME_TOP_TRIM + PLAYER_FRAME_BOTTOM_EXTEND,
         frame.cutX,
-        frame.cutY + PLAYER_FRAME_Y_SHIFT,
+        frame.cutY + PLAYER_FRAME_TOP_TRIM,
       );
     }
 
