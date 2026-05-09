@@ -4,6 +4,8 @@ import type { NpcSceneKey } from './npcRoster';
 import { Depths } from '../engine/depths';
 import { GameRegistry, giveItem } from '../state/GameRegistry';
 import { isFlagSet, setFlag } from '../state/dialogueFlags';
+import { ITEM_SPRITE, ITEM_LABEL } from '../state/items';
+import { attachLabel } from '../ui/NpcLabel';
 
 interface PickupDef {
   filler: FillerItem;
@@ -28,13 +30,7 @@ const PICKUP_DEFS: PickupDef[] = [
 
 const PICKUP_RADIUS = 24;
 const PICKUP_RADIUS_SQ = PICKUP_RADIUS * PICKUP_RADIUS;
-
-const FILLER_COLOR: Record<FillerItem, number> = {
-  fruit:  0xd84a3a,
-  water:  0x4a92d8,
-  rope:   0xa07a4a,
-  basket: 0xc69a5a,
-};
+const PICKUP_DISPLAY_HEIGHT = 32;
 
 const isConsumed = (def: PickupDef): boolean => {
   const heldFlag = `holding_${def.filler}` as const satisfies StateFlag;
@@ -44,40 +40,28 @@ const isConsumed = (def: PickupDef): boolean => {
 
 interface TileHandles {
   def: PickupDef;
-  marker: Phaser.GameObjects.Rectangle;
-  signPost: Phaser.GameObjects.Rectangle;
-  label: Phaser.GameObjects.Text;
+  sprite: Phaser.GameObjects.Image;
+  cleanupLabel: () => void;
   consumed: boolean;
 }
 
 const buildTile = (scene: Phaser.Scene, def: PickupDef): TileHandles => {
-  const depth = Depths.ACTORS + Math.round(def.y);
-
-  const marker = scene.add.rectangle(def.x, def.y, 12, 12, FILLER_COLOR[def.filler])
-    .setOrigin(0.5, 0.5)
-    .setStrokeStyle(1, 0x1a1208)
-    .setDepth(depth);
-
-  const signPost = scene.add.rectangle(def.x, def.y - 14, 40, 14, 0x8a6a3a)
+  const textureKey = ITEM_SPRITE[def.filler];
+  if (!textureKey) throw new Error(`No sprite mapped for filler item: ${def.filler}`);
+  const sprite = scene.add.image(def.x, def.y, textureKey)
     .setOrigin(0.5, 1)
-    .setStrokeStyle(1, 0x4a3018)
-    .setDepth(depth);
+    .setDepth(Depths.ACTORS + Math.round(def.y));
+  sprite.setScale(PICKUP_DISPLAY_HEIGHT / sprite.height);
 
-  const label = scene.add.text(def.x, def.y - 21, def.filler, {
-    fontFamily: 'monospace',
-    fontSize: '8px',
-    color: '#f2e8c8',
-    resolution: 2,
-  }).setOrigin(0.5, 0.5).setDepth(depth + 1);
+  const { cleanup: cleanupLabel } = attachLabel(scene, sprite, ITEM_LABEL[def.filler]);
 
-  return { def, marker, signPost, label, consumed: false };
+  return { def, sprite, cleanupLabel, consumed: false };
 };
 
 const hideTile = (tile: TileHandles) => {
   tile.consumed = true;
-  tile.marker.setVisible(false);
-  tile.signPost.setVisible(false);
-  tile.label.setVisible(false);
+  tile.sprite.setVisible(false);
+  tile.cleanupLabel();
 };
 
 export const spawnPickupTiles = (scene: Phaser.Scene, sceneKey: NpcSceneKey): void => {
@@ -112,9 +96,8 @@ export const spawnPickupTiles = (scene: Phaser.Scene, sceneKey: NpcSceneKey): vo
   const cleanup = () => {
     scene.events.off(Phaser.Scenes.Events.UPDATE, onUpdate);
     for (const tile of tiles) {
-      tile.marker.destroy();
-      tile.signPost.destroy();
-      tile.label.destroy();
+      if (!tile.consumed) tile.cleanupLabel();
+      tile.sprite.destroy();
     }
   };
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
