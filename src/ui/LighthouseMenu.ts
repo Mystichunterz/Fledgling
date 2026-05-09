@@ -32,7 +32,12 @@ export class LighthouseMenu {
 
     this.clickAwayHandler = (ev: MouseEvent) => {
       if (!this.isOpen) return;
-      if (this.root.contains(ev.target as Node)) return;
+      const inside = this.root.contains(ev.target as Node);
+      console.info('[LighthouseMenu] clickAway mousedown', {
+        targetTag: (ev.target as HTMLElement)?.tagName,
+        inside,
+      });
+      if (inside) return;
       this.close();
     };
   }
@@ -152,10 +157,18 @@ export class LighthouseMenu {
         : 'none'};
       text-shadow: ${enabled ? '1px 1px 0 rgba(0, 0, 0, 0.5)' : 'none'};
     `;
+    console.info('[LighthouseMenu] makeButton', { label, enabled });
+    btn.addEventListener('pointerdown', () => console.info('[LighthouseMenu] button pointerdown', { label }));
+    btn.addEventListener('mousedown',  () => console.info('[LighthouseMenu] button mousedown',  { label }));
+    btn.addEventListener('click',      () => console.info('[LighthouseMenu] button click event', { label, disabled: btn.disabled }));
     if (enabled) {
       btn.onmouseenter = () => { btn.style.filter = 'brightness(1.18)'; };
       btn.onmouseleave = () => { btn.style.filter = 'none'; };
-      btn.onclick = (ev) => { ev.stopPropagation(); onClick(); };
+      btn.onclick = (ev) => {
+        console.info('[LighthouseMenu] button onclick handler running', { label });
+        ev.stopPropagation();
+        onClick();
+      };
     }
     return btn;
   }
