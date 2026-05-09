@@ -118,6 +118,48 @@
         box-shadow: 0 0 10px rgba(255, 140, 40, 0.35);
       }
       #player-hud[hidden] { display: none; }
+
+      /* Music toggle — top-right, persists across scenes. PlayerHudScene
+         wires the click handler and reflects current SoundManager state. */
+      #music-toggle {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 1100;
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: ui-monospace, 'Cascadia Code', monospace;
+        font-size: 22px;
+        color: #f2e6c9;
+        background: rgba(10, 10, 20, 0.78);
+        border: 1px solid rgba(242, 230, 201, 0.35);
+        border-radius: 4px;
+        cursor: pointer;
+        user-select: none;
+        transition: background .15s ease, border-color .15s ease, color .15s ease;
+      }
+      #music-toggle:hover {
+        background: rgba(40, 30, 20, 0.86);
+        border-color: rgba(242, 230, 201, 0.6);
+      }
+      #music-toggle.muted {
+        color: rgba(242, 230, 201, 0.45);
+      }
+      #music-toggle .slash {
+        position: absolute;
+        width: 26px;
+        height: 2px;
+        background: currentColor;
+        transform: rotate(-30deg);
+        opacity: 0;
+        pointer-events: none;
+      }
+      #music-toggle.muted .slash { opacity: 1; }
+      #music-toggle[hidden] { display: none; }
+
       #debug-hud .teleport {
         margin-top: 6px;
         display: flex;

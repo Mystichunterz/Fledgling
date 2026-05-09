@@ -4,6 +4,7 @@ import { GameRegistry } from '../state/GameRegistry';
 import { ITEM_GLYPH, ITEM_LABEL, ITEM_SPRITE, type ItemId } from '../state/items';
 
 const SLOT_COUNT = 6;
+const MUSIC_MUTE_KEY = 'fledgling.musicMuted';
 
 // Player-facing inventory HUD — Minecraft/Stardew-style hotbar. Always
 // visible. Refreshed via rAF so it survives world-scene swaps (same pattern
@@ -12,6 +13,8 @@ export class PlayerHudScene extends Phaser.Scene {
   private hudEl: HTMLElement | null = null;
   private slotEls: HTMLElement[] = [];
   private beaconEl: HTMLElement | null = null;
+  private musicBtn: HTMLButtonElement | null = null;
+  private musicClickHandler: (() => void) | null = null;
   private rafHandle = 0;
 
   constructor() {
@@ -22,10 +25,40 @@ export class PlayerHudScene extends Phaser.Scene {
     this.hudEl = document.getElementById('player-hud');
     if (!this.hudEl) return;
     this.buildHud();
+    this.bindMusicToggle();
     this.startRefreshLoop();
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardown());
+  }
+
+  private bindMusicToggle() {
+    const btn = document.getElementById('music-toggle');
+    if (!(btn instanceof HTMLButtonElement)) return;
+    this.musicBtn = btn;
+
+    // BootScene already applied the persisted mute state to the global
+    // sound manager before playback started, so reflect the current value
+    // rather than re-reading localStorage.
+    this.applyMuted(this.sound.mute);
+
+    this.musicClickHandler = () => {
+      const next = !this.sound.mute;
+      this.applyMuted(next);
+      try {
+        window.localStorage.setItem(MUSIC_MUTE_KEY, next ? '1' : '0');
+      } catch { /* ignore */ }
+    };
+    btn.addEventListener('click', this.musicClickHandler);
+  }
+
+  private applyMuted(muted: boolean) {
+    this.sound.mute = muted;
+    if (this.musicBtn) {
+      this.musicBtn.classList.toggle('muted', muted);
+      this.musicBtn.title = muted ? 'Music off — click to unmute' : 'Music on — click to mute';
+      this.musicBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+    }
   }
 
   private buildHud() {
@@ -94,5 +127,10 @@ export class PlayerHudScene extends Phaser.Scene {
   private teardown() {
     if (this.rafHandle) cancelAnimationFrame(this.rafHandle);
     this.rafHandle = 0;
+    if (this.musicBtn && this.musicClickHandler) {
+      this.musicBtn.removeEventListener('click', this.musicClickHandler);
+    }
+    this.musicClickHandler = null;
+    this.musicBtn = null;
   }
 }

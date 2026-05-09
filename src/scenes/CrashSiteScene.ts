@@ -15,6 +15,7 @@ import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 import { paintFill } from '../engine/terrainTiles';
 import { snappedFollow } from '../engine/camera';
+import { CAMERA_ZOOM } from '../config';
 
 export const CRASH_WIDTH = 640;
 export const CRASH_HEIGHT = 360;
@@ -49,6 +50,7 @@ export class CrashSiteScene extends Phaser.Scene {
     GameRegistry.worldHeight = CRASH_HEIGHT;
     this.cameras.main.setBackgroundColor(0x1f4868);
     this.cameras.main.setBounds(0, 0, CRASH_WIDTH, CRASH_HEIGHT);
+    this.cameras.main.setZoom(CAMERA_ZOOM);
 
     // Sea at the north (top) — this is the north shore.
     this.add.rectangle(CRASH_WIDTH / 2, 0, CRASH_WIDTH, 140, 0x2a5878)

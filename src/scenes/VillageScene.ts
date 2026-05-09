@@ -15,6 +15,7 @@ import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 import { paintFill, scatterTrees } from '../engine/terrainTiles';
 import { snappedFollow } from '../engine/camera';
+import { CAMERA_ZOOM } from '../config';
 
 export const VILLAGE_WIDTH = 1280;
 export const VILLAGE_HEIGHT = 720;
@@ -53,6 +54,7 @@ export class VillageScene extends Phaser.Scene {
     GameRegistry.worldHeight = VILLAGE_HEIGHT;
     this.cameras.main.setBackgroundColor(0x2b557a);
     this.cameras.main.setBounds(0, 0, VILLAGE_WIDTH, VILLAGE_HEIGHT);
+    this.cameras.main.setZoom(CAMERA_ZOOM);
 
     this.buildGround();
     this.buildLandmarks();
