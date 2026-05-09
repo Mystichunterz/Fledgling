@@ -39,6 +39,7 @@ export class Player {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd: WasdKeys;
   private bounds: PlayerBounds;
+  private lastMoveTime = -Infinity;
 
   constructor(scene: Phaser.Scene, x: number, y: number, bounds: PlayerBounds) {
     this.bounds = bounds;
@@ -69,14 +70,22 @@ export class Player {
     if (this.cursors.right.isDown || this.wasd.D.isDown) dx += 1;
     if (this.cursors.up.isDown    || this.wasd.W.isDown) dy -= 1;
     if (this.cursors.down.isDown  || this.wasd.S.isDown) dy += 1;
-    if (dx !== 0 || dy !== 0) {
+    const moving = dx !== 0 || dy !== 0;
+    if (moving) {
       const len = Math.hypot(dx, dy);
       this.sprite.x += (dx / len) * SPEED * dt;
       this.sprite.y += (dy / len) * SPEED * dt;
       if (dx !== 0) this.sprite.setFlipX(dx < 0);
-      this.sprite.play(PLAYER_ANIMS.WALK_DOWN, true);
-    } else {
-      this.sprite.play(PLAYER_ANIMS.IDLE, true);
+      this.lastMoveTime = this.sprite.scene.time.now;
+    }
+    // Coyote window: hold WALK for ~80ms after the last movement frame.
+    // Prevents single-frame input gaps (common when the OS coalesces key
+    // events for diagonal arrow combos) from snapping to IDLE and back,
+    // which would reset the WALK animation to frame 0 each time.
+    const heldRecently = (this.sprite.scene.time.now - this.lastMoveTime) < 80;
+    const desired = (moving || heldRecently) ? PLAYER_ANIMS.WALK_DOWN : PLAYER_ANIMS.IDLE;
+    if (this.sprite.anims.currentAnim?.key !== desired) {
+      this.sprite.play(desired);
     }
 
     const { x, y } = clampToRect(
