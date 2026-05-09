@@ -5,7 +5,9 @@ import { attachProximityHighlight } from '../engine/highlight';
 import { attachLabel } from '../ui/NpcLabel';
 import { NPC_ROSTER, type NpcSceneKey, type NpcDef, type NpcArchetype } from './npcRoster';
 
-const NPC_DISPLAY_SIZE = 48;
+// Target rendered height in world pixels. Width follows the source PNG's
+// aspect ratio via uniform setScale so portraits stay un-squashed.
+const NPC_DISPLAY_HEIGHT = 32;
 const VARIANT_COUNT = 3;
 
 const ARCHETYPE_KEY: Record<NpcArchetype, string> = {
@@ -34,8 +36,8 @@ export const spawnNpc = (
   const textureKey = `${ARCHETYPE_KEY[npc.archetype]}_${variantFor(npc.id)}`;
   const sprite = scene.add.image(npc.spawn.x, npc.spawn.y, textureKey)
     .setOrigin(0.5, 1)
-    .setDisplaySize(NPC_DISPLAY_SIZE, NPC_DISPLAY_SIZE)
     .setDepth(Depths.ACTORS + Math.round(npc.spawn.y));
+  sprite.setScale(NPC_DISPLAY_HEIGHT / sprite.height);
   attachLabel(scene, sprite, npc.displayName);
   attachInteraction(sprite, npc.id);
   attachProximityHighlight(scene, sprite, { radius: 48 });
