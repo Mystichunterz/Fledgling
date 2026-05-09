@@ -3,6 +3,9 @@ import { SceneKeys } from '../assets/keys';
 import { GameRegistry, giveItem, clearItems } from '../state/GameRegistry';
 import { ITEMS, ITEM_LABEL, type ItemId } from '../state/items';
 import { NPC_ROSTER } from '../sim/npcRoster';
+import { clearFlags } from '../state/dialogueFlags';
+import { clearDiary } from '../sim/diary';
+import { resetPrologue } from './CrashPrologue';
 
 const HOTKEY_TO_SCENE: Record<string, string> = {
   '1': SceneKeys.CRASH_SITE,
@@ -97,11 +100,22 @@ export class DebugScene extends Phaser.Scene {
       items.appendChild(btn);
       this.itemButtons.set(id, btn);
     }
-    const reset = document.createElement('button');
-    reset.textContent = 'Reset';
-    reset.addEventListener('click', () => clearItems());
-    items.appendChild(reset);
+    const clearItemsBtn = document.createElement('button');
+    clearItemsBtn.textContent = 'Clear items';
+    clearItemsBtn.title = 'Drop every item and unlight the beacon';
+    clearItemsBtn.addEventListener('click', () => clearItems());
+    items.appendChild(clearItemsBtn);
     this.hudEl.appendChild(items);
+
+    const resetRow = document.createElement('div');
+    resetRow.className = 'teleport reset-row';
+    const newGameBtn = document.createElement('button');
+    newGameBtn.className = 'new-game';
+    newGameBtn.textContent = '↺ New Game (reset all)';
+    newGameBtn.title = 'Wipe items, flags, diary, and prologue, then reload';
+    newGameBtn.addEventListener('click', () => this.resetEverything());
+    resetRow.appendChild(newGameBtn);
+    this.hudEl.appendChild(resetRow);
 
     const hint = document.createElement('div');
     hint.className = 'hint';
@@ -174,6 +188,16 @@ export class DebugScene extends Phaser.Scene {
     for (const [id, btn] of this.itemButtons) {
       btn.classList.toggle('active', GameRegistry.itemsCollected.has(id));
     }
+  }
+
+  private resetEverything() {
+    const ok = window.confirm('Reset to a fresh game? This clears items, dialogue flags, diary entries, and the prologue marker, then reloads.');
+    if (!ok) return;
+    clearItems();
+    clearFlags();
+    clearDiary();
+    resetPrologue();
+    window.location.reload();
   }
 
   private toggle() {
