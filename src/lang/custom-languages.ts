@@ -30,23 +30,54 @@ export const MALAY_LANGUAGE: LanguageSpec = {
     SAY:   { stem: "kata",  category: "verb", frame: "SAY" },
     MAKE:  { stem: "buat",  category: "verb", frame: "MAKE" },
     EAT:   { stem: "makan", category: "verb", frame: "EAT" },
+    GREET:  { stem: "salam",   category: "verb", frame: "GREET" },
+    AFFIRM: { stem: "setuju",  category: "verb", frame: "AFFIRM" },
+    DENY:   { stem: "tolak",   category: "verb", frame: "DENY" },
+    DECIDE: { stem: "pilih",   category: "verb", frame: "DECIDE" },
+    KNOW:   { stem: "kenal",   category: "verb", frame: "KNOW" },
 
-    // Items
+    // Items — original set kept for older fixtures
     FLINT:   { stem: "batu",    category: "noun", semanticType: "ITEM" },
     STICK:   { stem: "kayu",    category: "noun", semanticType: "ITEM" },
     LIGHTER: { stem: "pemetik", category: "noun", semanticType: "ITEM" },
     BREAD:   { stem: "roti",    category: "noun", semanticType: "ITEM" },
     WATER:   { stem: "air",     category: "noun", semanticType: "ITEM" },
+    // Items — game inventory + dialogue references
+    WOOD:    { stem: "balak",  category: "noun", semanticType: "ITEM" },
+    OIL:     { stem: "minyak", category: "noun", semanticType: "ITEM" },
+    FRUIT:   { stem: "buah",   category: "noun", semanticType: "ITEM" },
+    PEBBLE:  { stem: "kerikil", category: "noun", semanticType: "ITEM" },
+    JOURNAL: { stem: "buku",   category: "noun", semanticType: "ITEM" },
+    LETTER:  { stem: "surat",  category: "noun", semanticType: "ITEM" },
+    FIRE:    { stem: "api",    category: "noun", semanticType: "ITEM" },
 
-    // Locations
+    // Locations — original set
     FOREST: { stem: "hutan",   category: "noun", semanticType: "LOCATION" },
     CAVE:   { stem: "gua",     category: "noun", semanticType: "LOCATION" },
     FORGE:  { stem: "bengkel", category: "noun", semanticType: "LOCATION" },
     MEADOW: { stem: "padang",  category: "noun", semanticType: "LOCATION" },
+    // Locations — game scenes + narrative places
+    BEACH:      { stem: "pantai",   category: "noun", semanticType: "LOCATION" },
+    VILLAGE:    { stem: "kampung",  category: "noun", semanticType: "LOCATION" },
+    HUT:        { stem: "pondok",   category: "noun", semanticType: "LOCATION" },
+    LIGHTHOUSE: { stem: "menara",   category: "noun", semanticType: "LOCATION" },
+    SHRINE:     { stem: "kuil",     category: "noun", semanticType: "LOCATION" },
+    HOME:       { stem: "rumah",    category: "noun", semanticType: "LOCATION" },
 
-    // Animates
+    // Animates — original set
     SMITH:    { stem: "tukang",   category: "noun", semanticType: "ANIMATE" },
     WOODSMAN: { stem: "pembalak", category: "noun", semanticType: "ANIMATE" },
+    // Animates — game roster
+    PREDECESSOR:   { stem: "dahulu",  category: "noun", semanticType: "ANIMATE" },
+    BAKER:         { stem: "pembuat", category: "noun", semanticType: "ANIMATE" },
+    FARMER:        { stem: "petani",  category: "noun", semanticType: "ANIMATE" },
+    GUARD:         { stem: "pengawal", category: "noun", semanticType: "ANIMATE" },
+    CHILD:         { stem: "kanak",   category: "noun", semanticType: "ANIMATE" },
+    SHRINE_KEEPER: { stem: "penjaga", category: "noun", semanticType: "ANIMATE" },
+
+    // Abstracts used by DECIDE.choice
+    LEAVING: { stem: "pergi",   category: "noun", semanticType: "ABSTRACT" },
+    STAYING: { stem: "tinggal", category: "noun", semanticType: "ABSTRACT" },
 
     // Pronouns (singular). "saya" is the polite first person; "kamu" is the
     // informal second person; "dia" covers third-person reference.
@@ -55,9 +86,10 @@ export const MALAY_LANGUAGE: LanguageSpec = {
     PRONOUN_REFERENCE: { stem: "dia",  category: "pronoun", person: "reference", semanticType: "ANIMATE", inherentNumber: "sg" },
 
     // Wh-words
-    WH_ANIMATE:  { stem: "siapa", category: "wh", semanticType: "ANIMATE" },
-    WH_ITEM:     { stem: "apa",   category: "wh", semanticType: "ITEM" },
-    WH_LOCATION: { stem: "mana",  category: "wh", semanticType: "LOCATION" },
+    WH_ANIMATE:  { stem: "siapa",    category: "wh", semanticType: "ANIMATE" },
+    WH_ITEM:     { stem: "apa",      category: "wh", semanticType: "ITEM" },
+    WH_LOCATION: { stem: "mana",     category: "wh", semanticType: "LOCATION" },
+    WH_ABSTRACT: { stem: "bagaimana", category: "wh", semanticType: "ABSTRACT" },
   },
   morphology: {
     alignment: "nom-acc",

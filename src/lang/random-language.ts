@@ -40,10 +40,22 @@ export { customLanguageNames } from "./custom-languages.js";
 const VERB_CONCEPTS = [
   "GIVE", "TAKE", "MOVE", "WANT", "BE_AT", "HAVE",
   "SEE", "SAY", "MAKE", "EAT",
+  // Social / dialogue frames added for game integration.
+  "GREET", "AFFIRM", "DENY", "DECIDE", "KNOW",
 ] as const;
-const ITEM_CONCEPTS = ["FLINT", "STICK", "LIGHTER", "BREAD", "WATER"] as const;
-const LOCATION_CONCEPTS = ["FOREST", "CAVE", "FORGE", "MEADOW"] as const;
-const ANIMATE_CONCEPTS = ["SMITH", "WOODSMAN"] as const;
+const ITEM_CONCEPTS = [
+  "FLINT", "STICK", "LIGHTER", "BREAD", "WATER",
+  "WOOD", "OIL", "FRUIT", "PEBBLE", "JOURNAL", "LETTER", "FIRE",
+] as const;
+const LOCATION_CONCEPTS = [
+  "FOREST", "CAVE", "FORGE", "MEADOW",
+  "BEACH", "VILLAGE", "HUT", "LIGHTHOUSE", "SHRINE", "HOME",
+] as const;
+const ANIMATE_CONCEPTS = [
+  "SMITH", "WOODSMAN",
+  "PREDECESSOR", "BAKER", "FARMER", "GUARD", "CHILD", "SHRINE_KEEPER",
+] as const;
+const ABSTRACT_CONCEPTS = ["LEAVING", "STAYING"] as const;
 // Deictic pronouns the random language must realise. Keys correspond to
 // the Pronoun enum members minus "unknown" (wh-words are emitted under
 // the WH_<TYPE> scheme below). Lexicon keys follow PRONOUN_ID_FOR.
@@ -64,9 +76,13 @@ const NEG_STRATEGIES: NegationStrategy[] = ["pre-verb", "post-verb", "affix"];
 function generateLexicon(rng: Rng, phon: Phonology): Record<string, LexiconEntry> {
   const verbCount = VERB_CONCEPTS.length;
   const nounCount =
-    ITEM_CONCEPTS.length + LOCATION_CONCEPTS.length + ANIMATE_CONCEPTS.length;
+    ITEM_CONCEPTS.length +
+    LOCATION_CONCEPTS.length +
+    ANIMATE_CONCEPTS.length +
+    ABSTRACT_CONCEPTS.length;
   const contentStems = uniqueWords(rng, phon, verbCount + nounCount, 2);
-  const shortStems = uniqueWords(rng, phon, PRONOUN_PERSONS.length + 3, 1);
+  // Short stems: 3 deictic pronouns + 4 wh-words (animate/item/location/abstract).
+  const shortStems = uniqueWords(rng, phon, PRONOUN_PERSONS.length + 4, 1);
 
   const lexicon: Record<string, LexiconEntry> = {};
   let i = 0;
@@ -82,6 +98,9 @@ function generateLexicon(rng: Rng, phon: Phonology): Record<string, LexiconEntry
   for (const id of ANIMATE_CONCEPTS) {
     lexicon[id] = { stem: contentStems[i++]!, category: "noun", semanticType: "ANIMATE" };
   }
+  for (const id of ABSTRACT_CONCEPTS) {
+    lexicon[id] = { stem: contentStems[i++]!, category: "noun", semanticType: "ABSTRACT" };
+  }
   let j = 0;
   for (const person of PRONOUN_PERSONS) {
     lexicon[PRONOUN_ID_FOR[person]] = {
@@ -95,6 +114,7 @@ function generateLexicon(rng: Rng, phon: Phonology): Record<string, LexiconEntry
   lexicon["WH_ANIMATE"]  = { stem: shortStems[j++]!, category: "wh", semanticType: "ANIMATE" };
   lexicon["WH_ITEM"]     = { stem: shortStems[j++]!, category: "wh", semanticType: "ITEM" };
   lexicon["WH_LOCATION"] = { stem: shortStems[j++]!, category: "wh", semanticType: "LOCATION" };
+  lexicon["WH_ABSTRACT"] = { stem: shortStems[j++]!, category: "wh", semanticType: "ABSTRACT" };
   return lexicon;
 }
 

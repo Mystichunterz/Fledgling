@@ -105,6 +105,32 @@ const ALL_TEMPLATES: Template[] = [
   T("BE_STATE_object_first", "BE_STATE", "state focus: state, experiencer is", [
     { kind: "object" }, { kind: "subject" }, { kind: "verb" },
   ]),
+
+  // ─── social / dialogue frames ───────────────────────────────
+  T("GREET_active", "GREET", "active: greeter greets addressee", SVO_O),
+  T("GREET_oblique_first", "GREET", "addressee focus: to addressee, greeter greets", [
+    { kind: "oblique" }, { kind: "subject" }, { kind: "verb" },
+  ]),
+
+  T("AFFIRM_active", "AFFIRM", "active: agreer affirms proposition", SVO_O),
+  T("AFFIRM_object_first", "AFFIRM", "proposition focus: proposition, agreer affirms", [
+    { kind: "object" }, { kind: "subject" }, { kind: "verb" },
+  ]),
+
+  T("DENY_active", "DENY", "active: disagreer denies proposition", SVO_O),
+  T("DENY_object_first", "DENY", "proposition focus: proposition, disagreer denies", [
+    { kind: "object" }, { kind: "subject" }, { kind: "verb" },
+  ]),
+
+  T("DECIDE_active", "DECIDE", "active: decider chooses choice", SVO_O),
+  T("DECIDE_object_first", "DECIDE", "choice focus: choice, decider chooses", [
+    { kind: "object" }, { kind: "subject" }, { kind: "verb" },
+  ]),
+
+  T("KNOW_active", "KNOW", "active: knower knows object", SVO_O),
+  T("KNOW_object_first", "KNOW", "object focus: object, knower knows", [
+    { kind: "object" }, { kind: "subject" }, { kind: "verb" },
+  ]),
 ];
 
 export function templatesFor(frameId: string): Template[] {
