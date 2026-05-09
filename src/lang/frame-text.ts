@@ -17,16 +17,17 @@ import {
 // through nested JSON.
 //
 // Grammar (informal):
-//   frame    := "~"? predicate ("." tense)? "!"? "(" roles? ")"
+//   frame    := ("!" | "~")* predicate ("." tense)? "(" roles? ")"
 //   roles    := role ("," role)*
 //   role     := name "=" filler
 //   filler   := pronoun | conceptId ("." number)? | "[" frame "]"
 //   pronoun  := "self" | "listener" | "reference" | "unknown"
 //   number   := "sg" | "pl"
 //   tense    := "past" | "present" | "future"
-//   "~" before the predicate marks negation; "!" after the predicate (or
-//   after ".tense") marks an imperative. Mood otherwise defaults to
-//   declarative; question-ness rides on an "unknown" filler.
+//   "~" before the predicate marks negation; "!" before the predicate marks
+//   an imperative. Either order is accepted (e.g. "!~GIVE" == "~!GIVE").
+//   Mood otherwise defaults to declarative; question-ness rides on an
+//   "unknown" filler.
 //
 // Examples:
 //   WANT(wanter=self, desired=FLINT)
@@ -61,10 +62,10 @@ export class FrameTextError extends Error {
 
 export function formatFrameText(frame: FilledFrame): string {
   let out = "";
+  if (frame.mood === "imperative") out += "!";
   if (frame.negated) out += "~";
   out += frame.predicate;
   if (frame.tense && frame.tense !== "present") out += `.${frame.tense}`;
-  if (frame.mood === "imperative") out += "!";
   const roleStrs = Object.entries(frame.roles).map(
     ([name, filler]) => `${name}=${formatFiller(filler)}`,
   );
@@ -124,9 +125,12 @@ export function parseFrameText(
 function parseFrame(cur: Cursor, conceptType: ConceptTypeLookup): FilledFrame {
   skipWs(cur);
   let negated = false;
-  if (peek(cur) === "~") {
+  let imperative = false;
+  // Accept "!" and "~" as prefix markers in either order.
+  while (peek(cur) === "!" || peek(cur) === "~") {
+    if (peek(cur) === "!") imperative = true;
+    else negated = true;
     cur.pos++;
-    negated = true;
     skipWs(cur);
   }
   const predicate = readIdentifier(cur);
@@ -142,11 +146,6 @@ function parseFrame(cur: Cursor, conceptType: ConceptTypeLookup): FilledFrame {
       );
     }
     tense = word as Tense;
-  }
-  let imperative = false;
-  if (peek(cur) === "!") {
-    cur.pos++;
-    imperative = true;
   }
   expect(cur, "(");
   const roles: Record<string, RoleFiller> = {};
