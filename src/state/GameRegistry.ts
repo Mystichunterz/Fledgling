@@ -1,7 +1,7 @@
 import type { ItemId } from './items';
 import type { Difficulty, LanguageSpec } from '../lang/language-spec';
 import { EXAMPLE_LANGUAGE } from '../lang/example-language';
-import { randomLanguage } from '../lang/random-language';
+import { randomLanguage, randomSeedString } from '../lang/random-language';
 
 export interface GameRegistryShape {
   currentScene: string | null;
@@ -19,14 +19,13 @@ export interface GameRegistryShape {
   languageDifficulty: Difficulty;
 }
 
-const DEFAULT_SEED = 'banana';
 const DEFAULT_DIFFICULTY: Difficulty = 'simple';
 
 function bootLanguage(): { language: LanguageSpec; seed: string; difficulty: Difficulty } {
   const params =
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const seedParam = params?.get('seed')?.trim();
-  const seed = seedParam && seedParam.length > 0 ? seedParam : DEFAULT_SEED;
+  const seed = seedParam && seedParam.length > 0 ? seedParam : randomSeedString();
   const diffParam = params?.get('difficulty');
   const difficulty: Difficulty = diffParam === 'full' ? 'full' : DEFAULT_DIFFICULTY;
   try {
