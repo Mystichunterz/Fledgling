@@ -3,11 +3,10 @@ import { GameRegistry } from '../state/GameRegistry';
 import { isFlagSet } from '../state/dialogueFlags';
 import { maybeOpenJournalOnHutEntry } from '../ui/JournalOverlay';
 
-// Village hut sprite is at (520, 380) origin (0.5, 1) — its visual centre
-// is around (520, 332). Trigger when the player walks within ~56px so the
-// journal pops just as they approach the porch.
-const HUT_X = 520;
-const HUT_Y = 332;
+// Village hut anchor per Calvin's playtest — trigger when the player walks
+// within ~56px so the journal pops just as they approach the porch.
+const HUT_X = 176;
+const HUT_Y = 137;
 const TRIGGER_RADIUS = 56;
 const TRIGGER_RADIUS_SQ = TRIGGER_RADIUS * TRIGGER_RADIUS;
 
