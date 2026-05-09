@@ -1,4 +1,5 @@
 export const SpriteKeys = {
+  PLAYER:    'player',
   LOC_HUT:    'loc_hut',
   LOC_STATUE: 'loc_statue',
   LOC_FIRE:   'loc_fire',

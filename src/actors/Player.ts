@@ -1,8 +1,17 @@
 import Phaser from 'phaser';
 import { Depths } from '../engine/depths';
 import { clampToRect } from '../engine/coords';
+import { SpriteKeys } from '../assets/keys';
 
 const SPEED = 60;
+const PLAYER_ANIMS = {
+  IDLE: 'player-idle',
+  WALK_DOWN: 'player-walk-down',
+  NOD: 'player-nod',
+  PUZZLED: 'player-puzzled',
+  FROWN: 'player-frown',
+  LAUGH: 'player-laugh',
+} as const;
 
 export interface PlayerBounds {
   x0: number;
@@ -19,17 +28,18 @@ interface WasdKeys {
 }
 
 export class Player {
-  sprite: Phaser.GameObjects.Rectangle;
+  sprite: Phaser.GameObjects.Sprite;
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd: WasdKeys;
   private bounds: PlayerBounds;
 
   constructor(scene: Phaser.Scene, x: number, y: number, bounds: PlayerBounds) {
     this.bounds = bounds;
-    this.sprite = scene.add.rectangle(x, y, 8, 12, 0xf2e6c9)
+    ensurePlayerAnimations(scene);
+    this.sprite = scene.add.sprite(x, y, SpriteKeys.PLAYER, 0)
       .setOrigin(0.5, 1)
-      .setStrokeStyle(1, 0x000000)
       .setDepth(Depths.ACTORS + Math.round(y));
+    this.sprite.play(PLAYER_ANIMS.IDLE);
 
     if (!scene.input.keyboard) {
       throw new Error('Player: keyboard input not available on this scene');
@@ -51,6 +61,9 @@ export class Player {
       const len = Math.hypot(dx, dy);
       this.sprite.x += (dx / len) * SPEED * dt;
       this.sprite.y += (dy / len) * SPEED * dt;
+      this.sprite.play(PLAYER_ANIMS.WALK_DOWN, true);
+    } else {
+      this.sprite.play(PLAYER_ANIMS.IDLE, true);
     }
 
     const { x, y } = clampToRect(
@@ -64,4 +77,51 @@ export class Player {
     this.sprite.y = y;
     this.sprite.setDepth(Depths.ACTORS + Math.round(this.sprite.y));
   }
+}
+
+function ensurePlayerAnimations(scene: Phaser.Scene) {
+  if (scene.anims.exists(PLAYER_ANIMS.IDLE)) return;
+
+  const makeFrames = (row: number) =>
+    scene.anims.generateFrameNumbers(SpriteKeys.PLAYER, {
+      start: row * 8,
+      end: row * 8 + 7,
+    });
+
+  scene.anims.create({
+    key: PLAYER_ANIMS.IDLE,
+    frames: makeFrames(0),
+    frameRate: 5,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: PLAYER_ANIMS.WALK_DOWN,
+    frames: makeFrames(1),
+    frameRate: 10,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: PLAYER_ANIMS.NOD,
+    frames: makeFrames(2),
+    frameRate: 8,
+    repeat: 0,
+  });
+  scene.anims.create({
+    key: PLAYER_ANIMS.PUZZLED,
+    frames: makeFrames(3),
+    frameRate: 8,
+    repeat: 0,
+  });
+  scene.anims.create({
+    key: PLAYER_ANIMS.FROWN,
+    frames: makeFrames(4),
+    frameRate: 8,
+    repeat: 0,
+  });
+  scene.anims.create({
+    key: PLAYER_ANIMS.LAUGH,
+    frames: makeFrames(5),
+    frameRate: 8,
+    repeat: 0,
+  });
 }
