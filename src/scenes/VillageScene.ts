@@ -13,7 +13,7 @@ import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
-import { makeGround, paintPatch, scatterTrees, TILE_SIZE } from '../engine/terrainTiles';
+import { paintFill, scatterTrees } from '../engine/terrainTiles';
 
 export const VILLAGE_WIDTH = 1280;
 export const VILLAGE_HEIGHT = 720;
@@ -83,50 +83,20 @@ export class VillageScene extends Phaser.Scene {
   }
 
   private buildGround() {
-    // Tiled water fill across the whole world; paint a large grass island
-    // patch in the middle and a smaller dirt clearing inside the grass.
-    const ground = makeGround(this, VILLAGE_WIDTH, VILLAGE_HEIGHT);
-    const cols = Math.floor(VILLAGE_WIDTH / TILE_SIZE);   // 80
-    const rows = Math.floor(VILLAGE_HEIGHT / TILE_SIZE);  // 45
+    // Pure grass base across the whole village world. Trees scatter in the
+    // outer band so the village interior (landmarks/roads/NPCs) stays clear.
+    paintFill(this, 0, 0, VILLAGE_WIDTH, VILLAGE_HEIGHT, 'grass');
 
-    const ISLAND_INSET = 4;
-    const islandTx = ISLAND_INSET;
-    const islandTy = ISLAND_INSET;
-    const islandW = cols - ISLAND_INSET * 2;
-    const islandH = rows - ISLAND_INSET * 2;
-    paintPatch(ground, islandTx, islandTy, islandW, islandH, 'grass');
+    const MARGIN = 32;
+    const INNER_INSET = 160;
+    const innerW = VILLAGE_WIDTH - INNER_INSET * 2;
+    const innerH = VILLAGE_HEIGHT - INNER_INSET * 2;
 
-    const clearingW = 6;
-    const clearingH = 5;
-    const clearingTx = Math.floor(cols / 2) + 6;
-    const clearingTy = Math.floor(rows / 2) + 2;
-    paintPatch(ground, clearingTx, clearingTy, clearingW, clearingH, 'dirt');
-
-    // Scatter trees over the grass island, leaving a clear band around the
-    // perimeter (so corner/edge tiles read cleanly) and avoiding the dirt
-    // clearing. Determinism not needed — the village layout is static once
-    // the scene is created.
-    const treeTx = islandTx + 2;
-    const treeTy = islandTy + 2;
-    const treeCols = islandW - 4;
-    const treeRows = islandH - 4;
-    scatterTrees(this, treeTx, treeTy, treeCols, treeRows, 18, 'grass');
-    scatterTrees(this, clearingTx + 1, clearingTy + 1, clearingW - 2, clearingH - 2, 1, 'dirt');
-
-    // Sand-colored bridges from the grass-island edge out to the world edge
-    // at the three transition points. Player needs to reach the world edge
-    // to trigger transitions; the bridges give visible footing over water.
-    const cx = VILLAGE_WIDTH / 2;
-    const cy = VILLAGE_HEIGHT / 2;
-    const BRIDGE = 88;
-    const SAND = 0xd4b88a;
-    const SAND_DEPTH = Depths.BG_GROUND + 1;
-    this.add.rectangle(cx - BRIDGE / 2, 0, BRIDGE, ISLAND_INSET * TILE_SIZE, SAND)
-      .setOrigin(0, 0).setDepth(SAND_DEPTH);
-    this.add.rectangle(0, cy - BRIDGE / 2, ISLAND_INSET * TILE_SIZE, BRIDGE, SAND)
-      .setOrigin(0, 0).setDepth(SAND_DEPTH);
-    this.add.rectangle(cx - BRIDGE / 2, VILLAGE_HEIGHT - ISLAND_INSET * TILE_SIZE, BRIDGE, ISLAND_INSET * TILE_SIZE, SAND)
-      .setOrigin(0, 0).setDepth(SAND_DEPTH);
+    // Top, bottom, left, right bands — trees only on the outer ring.
+    scatterTrees(this, MARGIN, MARGIN, VILLAGE_WIDTH - MARGIN * 2, INNER_INSET - MARGIN, 6, 'grass');
+    scatterTrees(this, MARGIN, INNER_INSET + innerH, VILLAGE_WIDTH - MARGIN * 2, INNER_INSET - MARGIN, 6, 'grass');
+    scatterTrees(this, MARGIN, INNER_INSET, INNER_INSET - MARGIN, innerH, 4, 'grass');
+    scatterTrees(this, INNER_INSET + innerW, INNER_INSET, INNER_INSET - MARGIN, innerH, 4, 'grass');
   }
 
   private buildLandmarks() {

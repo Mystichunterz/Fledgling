@@ -13,6 +13,7 @@ import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
+import { paintFill } from '../engine/terrainTiles';
 
 export const CRASH_WIDTH = 640;
 export const CRASH_HEIGHT = 360;
@@ -58,15 +59,12 @@ export class CrashSiteScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setDepth(Depths.BG_GROUND - 1);
 
-    // Beach (sand) — middle band.
-    this.add.rectangle(CRASH_WIDTH / 2, 156, CRASH_WIDTH, 124, 0xd4b88a)
-      .setOrigin(0.5, 0)
-      .setDepth(Depths.BG_GROUND);
+    // Beach (sand) — middle band, tiled dirt tinted toward sand.
+    paintFill(this, 0, 156, CRASH_WIDTH, 124, 'dirt', 0xf2d4a0);
 
-    // Grass/path strip leading south to village — where the player exits.
-    this.add.rectangle(CRASH_WIDTH / 2, 280, CRASH_WIDTH, CRASH_HEIGHT - 280, 0x6a8e54)
-      .setOrigin(0.5, 0)
-      .setDepth(Depths.BG_GROUND + 1);
+    // Grass strip leading south to village — slightly cool tint to read as
+    // distinct from the village proper.
+    paintFill(this, 0, 280, CRASH_WIDTH, CRASH_HEIGHT - 280, 'grass', 0xc0e0b0);
 
     // Plane wreckage on the beach (mid-sand).
     this.add.rectangle(320, 240, 96, 32, 0x4a4a5a)

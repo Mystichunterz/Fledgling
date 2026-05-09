@@ -24,111 +24,65 @@ export const TileFrames = {
   TREE_DIRT:  f(7, 5),
 } as const;
 
-type Patch = {
-  NW: number; N: number; NE: number;
-  W:  number; C: number; E:  number;
-  SW: number; S: number; SE: number;
-};
-
-const GRASS_PATCH: Patch = {
-  NW: TileFrames.GRASS_NW, N: TileFrames.GRASS_N, NE: TileFrames.GRASS_NE,
-  W:  TileFrames.GRASS_W,  C: TileFrames.GRASS_C, E:  TileFrames.GRASS_E,
-  SW: TileFrames.GRASS_SW, S: TileFrames.GRASS_S, SE: TileFrames.GRASS_SE,
-};
-
-const DIRT_PATCH: Patch = {
-  NW: TileFrames.DIRT_NW, N: TileFrames.DIRT_N, NE: TileFrames.DIRT_NE,
-  W:  TileFrames.DIRT_W,  C: TileFrames.DIRT_C, E:  TileFrames.DIRT_E,
-  SW: TileFrames.DIRT_SW, S: TileFrames.DIRT_S, SE: TileFrames.DIRT_SE,
-};
-
 export type TerrainKind = 'grass' | 'dirt';
 
+const FRAME_FOR_FILL: Record<TerrainKind, number> = {
+  grass: TileFrames.GRASS_C,
+  dirt:  TileFrames.DIRT_C,
+};
+
+const TREE_FRAME_FOR: Record<TerrainKind, number> = {
+  grass: TileFrames.TREE_GRASS,
+  dirt:  TileFrames.TREE_DIRT,
+};
+
 /**
- * Bake a tiled ground layer into a RenderTexture covering the full world.
+ * Fill a rectangular region with a repeated terrain tile (pure grass or pure
+ * dirt). Uses a single TileSprite — one GameObject regardless of region size.
  *
- * Returns the RenderTexture for further drawing (e.g. patches on top). Caller
- * is responsible for adding any decor sprites afterwards.
+ * An optional tint shifts the base hue without needing extra art (e.g.
+ * lighthouse cliffs = cooler dirt, hut interior = warmer dirt). Pass the full
+ * world size at (0,0) for a scene-wide ground; pass a sub-region to tile only
+ * a band (sky/ground split).
  */
-export function makeGround(
+export function paintFill(
   scene: Phaser.Scene,
-  worldWidth: number,
-  worldHeight: number,
-  fill: number = TileFrames.WATER,
-): Phaser.GameObjects.RenderTexture {
-  const cols = Math.ceil(worldWidth / TILE_SIZE);
-  const rows = Math.ceil(worldHeight / TILE_SIZE);
-  const rt = scene.add.renderTexture(0, 0, cols * TILE_SIZE, rows * TILE_SIZE)
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  kind: TerrainKind,
+  tint?: number,
+): Phaser.GameObjects.TileSprite {
+  const ts = scene.add.tileSprite(
+    x, y, width, height,
+    SpriteKeys.TILES_TERRAIN,
+    FRAME_FOR_FILL[kind],
+  )
     .setOrigin(0, 0)
     .setDepth(Depths.BG_GROUND);
-  const stampCfg = { originX: 0, originY: 0 };
-  for (let ty = 0; ty < rows; ty++) {
-    for (let tx = 0; tx < cols; tx++) {
-      rt.stamp(SpriteKeys.TILES_TERRAIN, fill, tx * TILE_SIZE, ty * TILE_SIZE, stampCfg);
-    }
-  }
-  return rt;
+  if (tint !== undefined) ts.setTint(tint);
+  return ts;
 }
 
 /**
- * Paint a rectangular terrain island onto a RenderTexture using 9-slice tiles
- * (4 corners + 4 edges + filled center). Coordinates are in TILE units; the
- * patch occupies tiles [tx0, tx0+cols) x [ty0, ty0+rows). Requires cols >= 2
- * and rows >= 2 so all corners fit; for 1-tile-wide strips, just place the
- * appropriate tile manually.
- */
-export function paintPatch(
-  rt: Phaser.GameObjects.RenderTexture,
-  tx0: number,
-  ty0: number,
-  cols: number,
-  rows: number,
-  kind: TerrainKind,
-): void {
-  if (cols < 2 || rows < 2) {
-    throw new Error(`paintPatch requires cols>=2 and rows>=2, got ${cols}x${rows}`);
-  }
-  const p = kind === 'grass' ? GRASS_PATCH : DIRT_PATCH;
-  for (let ry = 0; ry < rows; ry++) {
-    for (let rx = 0; rx < cols; rx++) {
-      const onN = ry === 0;
-      const onS = ry === rows - 1;
-      const onW = rx === 0;
-      const onE = rx === cols - 1;
-      let frame: number;
-      if (onN && onW)      frame = p.NW;
-      else if (onN && onE) frame = p.NE;
-      else if (onS && onW) frame = p.SW;
-      else if (onS && onE) frame = p.SE;
-      else if (onN)        frame = p.N;
-      else if (onS)        frame = p.S;
-      else if (onW)        frame = p.W;
-      else if (onE)        frame = p.E;
-      else                 frame = p.C;
-      const px = (tx0 + rx) * TILE_SIZE;
-      const py = (ty0 + ry) * TILE_SIZE;
-      rt.stamp(SpriteKeys.TILES_TERRAIN, frame, px, py, { originX: 0, originY: 0 });
-    }
-  }
-}
-
-/**
- * Scatter `count` tree sprites at random tile cells inside the given tile-rect.
- * Trees are drawn as actual GameObjects (not baked) so they can sort against
- * actors via depth = y. Pass a Phaser RNG-seeded source for determinism if
- * desired; otherwise Math.random is used.
+ * Scatter `count` tree sprites at random tile cells inside the given pixel
+ * rectangle. Trees are real GameObjects (not baked) so they y-sort against
+ * actors via depth. Pass a seeded RNG for deterministic placement.
  */
 export function scatterTrees(
   scene: Phaser.Scene,
-  tx0: number,
-  ty0: number,
-  cols: number,
-  rows: number,
+  px: number,
+  py: number,
+  pw: number,
+  ph: number,
   count: number,
-  variant: 'grass' | 'dirt',
+  variant: TerrainKind,
   rng: () => number = Math.random,
 ): Phaser.GameObjects.Image[] {
-  const frame = variant === 'grass' ? TileFrames.TREE_GRASS : TileFrames.TREE_DIRT;
+  const cols = Math.max(1, Math.floor(pw / TILE_SIZE));
+  const rows = Math.max(1, Math.floor(ph / TILE_SIZE));
+  const frame = TREE_FRAME_FOR[variant];
   const out: Phaser.GameObjects.Image[] = [];
   const used = new Set<string>();
   let safety = count * 8;
@@ -138,11 +92,11 @@ export function scatterTrees(
     const k = `${rx},${ry}`;
     if (used.has(k)) continue;
     used.add(k);
-    const px = (tx0 + rx) * TILE_SIZE + TILE_SIZE / 2;
-    const py = (ty0 + ry) * TILE_SIZE + TILE_SIZE;
-    const img = scene.add.image(px, py, SpriteKeys.TILES_TERRAIN, frame)
+    const cx = px + rx * TILE_SIZE + TILE_SIZE / 2;
+    const cy = py + ry * TILE_SIZE + TILE_SIZE;
+    const img = scene.add.image(cx, cy, SpriteKeys.TILES_TERRAIN, frame)
       .setOrigin(0.5, 1)
-      .setDepth(Depths.BG_DECOR + py);
+      .setDepth(Depths.BG_DECOR + cy);
     out.push(img);
   }
   return out;

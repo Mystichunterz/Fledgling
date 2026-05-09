@@ -13,6 +13,7 @@ import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
+import { paintFill } from '../engine/terrainTiles';
 
 export const HUT_WIDTH = 480;
 export const HUT_HEIGHT = 270;
@@ -48,9 +49,8 @@ export class HutScene extends Phaser.Scene {
     this.add.rectangle(HUT_WIDTH / 2, 60, HUT_WIDTH, 60, 0x2a3848)
       .setOrigin(0.5, 1)
       .setDepth(Depths.BG_SKY);
-    this.add.rectangle(HUT_WIDTH / 2, HUT_HEIGHT, HUT_WIDTH, HUT_HEIGHT - 60, 0x6a6a4a)
-      .setOrigin(0.5, 1)
-      .setDepth(Depths.BG_GROUND);
+    // Warm dirt floor for the hut interior — tinted slightly amber.
+    paintFill(this, 0, 60, HUT_WIDTH, HUT_HEIGHT - 60, 'dirt', 0xe8c878);
     this.add.rectangle(HUT_WIDTH / 2, 64, HUT_WIDTH, 4, 0x404848)
       .setOrigin(0.5, 0.5)
       .setDepth(Depths.BG_GROUND + 1);

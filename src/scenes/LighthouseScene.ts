@@ -13,6 +13,7 @@ import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
+import { paintFill } from '../engine/terrainTiles';
 import { attachProximityHighlight } from '../engine/highlight';
 import { LighthouseMenu } from '../ui/LighthouseMenu';
 
@@ -59,9 +60,8 @@ export class LighthouseScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x6e4030);
     this.cameras.main.setBounds(0, 0, LIGHTHOUSE_WIDTH, LIGHTHOUSE_HEIGHT);
 
-    this.add.rectangle(LIGHTHOUSE_WIDTH / 2, 240, LIGHTHOUSE_WIDTH, 240, 0x8a6040)
-      .setOrigin(0.5, 1)
-      .setDepth(Depths.BG_GROUND);
+    // Cool, weather-bleached dirt for the headland cliffs — tinted grey-blue.
+    paintFill(this, 0, 0, LIGHTHOUSE_WIDTH, 240, 'dirt', 0xb0a898);
     this.add.rectangle(LIGHTHOUSE_WIDTH / 2, LIGHTHOUSE_HEIGHT, LIGHTHOUSE_WIDTH, 120, 0x2a3858)
       .setOrigin(0.5, 1)
       .setDepth(Depths.BG_SKY);
