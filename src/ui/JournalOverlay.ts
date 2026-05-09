@@ -1,13 +1,15 @@
-import { isFlagSet, setFlag } from '../state/dialogueFlags';
+import { setFlag } from '../state/dialogueFlags';
 
 const PREDECESSOR_NAME = 'Maren';
 
 // Journal page left in the predecessor's hut. Renders in English (player's
 // own language — they're reading words written by another castaway). Sets
 // has_visited_hut, which unlocks {{predecessorName}}-flavoured dialogue
-// branches across all NPCs.
+// branches across all NPCs. The four glossed Telopa words at the top of
+// the page are also the seedWords (REQUIREMENTS.md §5.1) — when the diary
+// surface lands, they auto-populate as pre-filled entries.
 const PAGES: string[] = [
-  `If you're reading this, you washed up like I did.\n\nThe four to find:\n  Naro — well, bread\n  Lemu — firepit, oil\n  Toka — shrine, flint\n  Senu — forest, wood\n\nHala's in the lighthouse. She'll ask you a question.\nThere's no wrong answer — only one you can live with.\n\n— ${PREDECESSOR_NAME}`,
+  `the bread is the wrong shape here. salt in everything.\n\nfour winters now. words i think i have —\n\n  welo   good (?)\n  tara   bad\n  pala   home / house — the same word, of course\n  kowe   they say it when they pass things across\n\nthe others are kind in pieces.\nshe's the one who keeps trying. hala.\ni find her at the lighthouse most evenings now.\n\nthink i'll walk up there tonight.\n\n— ${PREDECESSOR_NAME}`,
 ];
 
 export class JournalOverlay {
@@ -118,9 +120,9 @@ const getJournal = () => {
   return singleton;
 };
 
-// Open the journal once on first hut entry; subsequent visits silently
-// keep has_visited_hut set.
-export const maybeOpenJournalOnHutEntry = () => {
-  if (isFlagSet('has_visited_hut')) return;
+// Open the journal — re-readable any time. First read sets has_visited_hut
+// to unlock {{predecessorName}} dialogue branches; subsequent reads are
+// idempotent on the flag.
+export const openJournal = () => {
   getJournal().open();
 };

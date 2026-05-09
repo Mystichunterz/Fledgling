@@ -2,23 +2,21 @@ import Phaser from 'phaser';
 import { Depths } from '../engine/depths';
 import { attachProximityHighlight } from '../engine/highlight';
 import { attachLabel } from '../ui/NpcLabel';
-import { isFlagSet } from '../state/dialogueFlags';
-import { maybeOpenJournalOnHutEntry } from '../ui/JournalOverlay';
+import { openJournal } from '../ui/JournalOverlay';
 
 interface JournalPageOptions {
   x: number;
   y: number;
 }
 
-// Maren's journal page sits on the hut floor as a clickable prop. Glows on
-// proximity (same gold ring as NPCs) so the player knows it's interactable;
-// click to read, which sets has_visited_hut. Quietly hides itself once the
-// flag is set so re-entries don't re-render an already-read book.
+// Maren's journal page sits on the hut floor as a clickable prop. Always
+// rendered — re-readable on every visit. Glows on proximity (same gold ring
+// as NPCs); click to open. The first read sets has_visited_hut to unlock
+// {{predecessorName}} dialogue branches.
 export const attachJournalPage = (
   scene: Phaser.Scene,
   { x, y }: JournalPageOptions,
 ): void => {
-  if (isFlagSet('has_visited_hut')) return;
 
   const depth = Depths.ACTORS + Math.round(y);
   // Burgundy leather binding so it reads as a book against the parchment
@@ -45,8 +43,6 @@ export const attachJournalPage = (
 
   book.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
     pointer.event?.stopPropagation?.();
-    maybeOpenJournalOnHutEntry();
-    book.destroy();
-    pages.destroy();
+    openJournal();
   });
 };
