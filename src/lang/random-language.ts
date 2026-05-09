@@ -49,12 +49,12 @@ const VERB_CONCEPTS = [
 const ITEM_CONCEPTS = [
   "FLINT", "STICK", "LIGHTER", "BREAD", "WATER",
   "WOOD", "OIL", "FRUIT", "PEBBLE", "JOURNAL", "LETTER", "FIRE", "BOAT",
-  "ROPE", "BASKET",
+  "ROPE", "BASKET", "OLIVE", "SONG",
 ] as const;
 const LOCATION_CONCEPTS = [
   "FOREST", "CAVE", "FORGE", "MEADOW",
   "BEACH", "VILLAGE", "HUT", "LIGHTHOUSE", "SHRINE", "HOME",
-  "WELL", "FIREPIT",
+  "WELL", "FIREPIT", "TREE", "END", "PRESS",
 ] as const;
 const ANIMATE_CONCEPTS = [
   "SMITH", "WOODSMAN",
@@ -62,7 +62,10 @@ const ANIMATE_CONCEPTS = [
   // NPC proper names — random-seeded languages give each NPC a generated stem.
   "PEMI", "NARO", "LEMU", "TOKA", "SENU", "HALA",
 ] as const;
-const ABSTRACT_CONCEPTS = ["LEAVING", "STAYING", "GOOD"] as const;
+const ABSTRACT_CONCEPTS = [
+  "LEAVING", "STAYING", "GOOD",
+  "NOT_YET", "ROUND", "RED", "SWEET", "FAST", "QUIET",
+] as const;
 // Deictic pronouns the random language must realise. Keys correspond to
 // the Pronoun enum members minus "unknown" (wh-words are emitted under
 // the WH_<TYPE> scheme below). Lexicon keys follow PRONOUN_ID_FOR.
