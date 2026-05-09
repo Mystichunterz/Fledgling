@@ -10,10 +10,14 @@ export type AnimKey =
   | 'gesture_self' | 'gesture_other' | 'none';
 
 export type ItemKind = 'wood' | 'oil' | 'flint';
+// Filler items the player picks up to satisfy NPC fetch quests, before
+// receiving the critical wood/oil/flint in exchange.
+export type FillerItem = 'fruit' | 'water' | 'rope' | 'basket';
 
 export type StateFlag =
   | 'has_visited_hut'
   | `holds_item_${ItemKind}`
+  | `holding_${FillerItem}`
   | `fetch_done_${NpcId}`
   | `met_${NpcId}`
   | `anchor_known.${AnchorWord}`;
