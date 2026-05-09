@@ -101,17 +101,17 @@ export class VillageScene extends Phaser.Scene {
   }
 
   private buildLandmarks() {
-    type Landmark = { x: number; y: number; w: number; h: number; color: number; label: string };
+    type Landmark = { x: number; y: number; w: number; h: number; key: string };
     const landmarks: Landmark[] = [
-      { x: 240, y: 180, w: 56, h: 44, color: 0xb56a3a, label: 'bakery' },
-      { x: 800, y: 180, w: 40, h: 44, color: 0x6a6a8a, label: 'guard' },
-      { x: 800, y: 380, w: 24, h: 24, color: 0x4a8a4a, label: 'play' },
-      { x: 320, y: 580, w: 96, h: 56, color: 0xc8a050, label: 'farm' },
+      { x: 240, y: 180, w: 96,  h: 96, key: SpriteKeys.LOC_BAKERY },
+      { x: 800, y: 180, w: 80,  h: 96, key: SpriteKeys.LOC_GUARDPOST },
+      { x: 800, y: 380, w: 80,  h: 80, key: SpriteKeys.LOC_PLAYGROUND },
+      { x: 320, y: 580, w: 128, h: 96, key: SpriteKeys.LOC_FARM },
     ];
     for (const l of landmarks) {
-      this.add.rectangle(l.x, l.y, l.w, l.h, l.color)
+      this.add.image(l.x, l.y, l.key)
         .setOrigin(0.5, 1)
-        .setStrokeStyle(1, 0x3a2a14)
+        .setDisplaySize(l.w, l.h)
         .setDepth(Depths.BG_DECOR + Math.round(l.y));
     }
 

@@ -21,6 +21,10 @@ export class BootScene extends Phaser.Scene {
     this.load.image(SpriteKeys.LOC_BEACON, 'sprite_location_lighthouse_headland_beacon.png');
     this.load.image(SpriteKeys.LOC_BEACON_OFF, 'sprite_location_lighthouse_OFF.png');
     this.load.image(SpriteKeys.LOC_BOAT,   'sprite_location_boat.png');
+    this.load.image(SpriteKeys.LOC_BAKERY, 'sprite_location_bakery.png');
+    this.load.image(SpriteKeys.LOC_GUARDPOST, 'sprite_location_guardpost.png');
+    this.load.image(SpriteKeys.LOC_PLAYGROUND, 'sprite_location_playground.png');
+    this.load.image(SpriteKeys.LOC_FARM, 'sprite_location_farm.png');
     this.load.image(SpriteKeys.ITEM_WOOD,  'sprite_item_wood.png');
     this.load.image(SpriteKeys.ITEM_OIL,   'sprite_item_oil.png');
     this.load.image(SpriteKeys.ITEM_FLINT, 'sprite_item_flint.png');
