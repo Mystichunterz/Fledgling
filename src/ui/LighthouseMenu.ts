@@ -102,13 +102,29 @@ export class LighthouseMenu {
     this.root.appendChild(list);
 
     const allHave = CRITICAL_ITEMS.every(id => GameRegistry.itemsCollected.has(id));
+    console.info('[LighthouseMenu] render', {
+      allHave,
+      collected: [...GameRegistry.itemsCollected],
+      missingCriticals: CRITICAL_ITEMS.filter(id => !GameRegistry.itemsCollected.has(id)),
+      beaconLit: GameRegistry.beaconLit,
+    });
     this.root.appendChild(
       this.makeButton(
         allHave ? 'Light the Beacon' : `Need ${this.missingCount()} more`,
         allHave,
         () => {
+          console.info('[LighthouseMenu] Light the Beacon clicked', {
+            beaconLit: GameRegistry.beaconLit,
+            collected: [...GameRegistry.itemsCollected],
+          });
           this.close();
-          options.onLight();
+          try {
+            options.onLight();
+            console.info('[LighthouseMenu] onLight() returned cleanly');
+          } catch (err) {
+            console.error('[LighthouseMenu] onLight() threw:', err);
+            throw err;
+          }
         },
       ),
     );

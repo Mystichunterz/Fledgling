@@ -133,12 +133,21 @@ export class LighthouseScene extends Phaser.Scene {
   }
 
   private igniteBeacon() {
-    if (GameRegistry.beaconLit) return;
+    console.info('[LighthouseScene] igniteBeacon entered', { alreadyLit: GameRegistry.beaconLit });
+    if (GameRegistry.beaconLit) {
+      console.warn('[LighthouseScene] igniteBeacon early-returned — beaconLit was already true');
+      return;
+    }
     GameRegistry.beaconLit = true;
-    this.applyLitVisual(true);
-    // Hold a beat on the lit pyre so the flash + flame land, then cut to the
-    // end cutscene (cargo ship sailing off → fade to black → closing words).
+    try {
+      this.applyLitVisual(true);
+      console.info('[LighthouseScene] applyLitVisual completed');
+    } catch (err) {
+      console.error('[LighthouseScene] applyLitVisual threw:', err);
+      throw err;
+    }
     this.time.delayedCall(2200, () => {
+      console.info('[LighthouseScene] starting end-cutscene');
       this.scene.start('end-cutscene');
     });
   }
