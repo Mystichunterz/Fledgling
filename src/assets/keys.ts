@@ -7,6 +7,7 @@ export const SpriteKeys = {
   ITEM_OIL:   'item_oil',
   ITEM_FLINT: 'item_flint',
   ITEM_FRUIT: 'item_fruit',
+  TILES_TERRAIN: 'tiles_terrain',
 } as const;
 export type SpriteKey = typeof SpriteKeys[keyof typeof SpriteKeys];
 

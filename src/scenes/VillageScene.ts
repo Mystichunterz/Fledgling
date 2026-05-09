@@ -13,6 +13,7 @@ import { GameRegistry } from '../state/GameRegistry';
 import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
+import { makeGround, paintPatch, scatterTrees, TILE_SIZE } from '../engine/terrainTiles';
 
 export const VILLAGE_WIDTH = 1280;
 export const VILLAGE_HEIGHT = 720;
@@ -82,32 +83,50 @@ export class VillageScene extends Phaser.Scene {
   }
 
   private buildGround() {
+    // Tiled water fill across the whole world; paint a large grass island
+    // patch in the middle and a smaller dirt clearing inside the grass.
+    const ground = makeGround(this, VILLAGE_WIDTH, VILLAGE_HEIGHT);
+    const cols = Math.floor(VILLAGE_WIDTH / TILE_SIZE);   // 80
+    const rows = Math.floor(VILLAGE_HEIGHT / TILE_SIZE);  // 45
+
+    const ISLAND_INSET = 4;
+    const islandTx = ISLAND_INSET;
+    const islandTy = ISLAND_INSET;
+    const islandW = cols - ISLAND_INSET * 2;
+    const islandH = rows - ISLAND_INSET * 2;
+    paintPatch(ground, islandTx, islandTy, islandW, islandH, 'grass');
+
+    const clearingW = 6;
+    const clearingH = 5;
+    const clearingTx = Math.floor(cols / 2) + 6;
+    const clearingTy = Math.floor(rows / 2) + 2;
+    paintPatch(ground, clearingTx, clearingTy, clearingW, clearingH, 'dirt');
+
+    // Scatter trees over the grass island, leaving a clear band around the
+    // perimeter (so corner/edge tiles read cleanly) and avoiding the dirt
+    // clearing. Determinism not needed — the village layout is static once
+    // the scene is created.
+    const treeTx = islandTx + 2;
+    const treeTy = islandTy + 2;
+    const treeCols = islandW - 4;
+    const treeRows = islandH - 4;
+    scatterTrees(this, treeTx, treeTy, treeCols, treeRows, 18, 'grass');
+    scatterTrees(this, clearingTx + 1, clearingTy + 1, clearingW - 2, clearingH - 2, 1, 'dirt');
+
+    // Sand-colored bridges from the grass-island edge out to the world edge
+    // at the three transition points. Player needs to reach the world edge
+    // to trigger transitions; the bridges give visible footing over water.
     const cx = VILLAGE_WIDTH / 2;
     const cy = VILLAGE_HEIGHT / 2;
-    // Camera bg is sea blue — visible at the perimeter outside the island.
-    // Sand "island" — inset 32 px from the world edges so sea shows around it.
-    this.add.rectangle(cx, cy, VILLAGE_WIDTH - 64, VILLAGE_HEIGHT - 64, 0xd4b88a)
-      .setDepth(Depths.BG_GROUND);
-    // Grass interior — the village proper.
-    this.add.rectangle(cx, cy, VILLAGE_WIDTH - 128, VILLAGE_HEIGHT - 128, 0x6a8e54)
-      .setDepth(Depths.BG_GROUND + 10);
-
-    // Land bridges — narrow sand strips spanning the sea moat to the world
-    // edge at each transition point. The fog overlay sits over the bridge
-    // tip, so the player walks on visible sand into mist.
     const BRIDGE = 88;
-    // North bridge (to Crash Site)
-    this.add.rectangle(cx - BRIDGE / 2, 0, BRIDGE, 32, 0xd4b88a)
-      .setOrigin(0, 0)
-      .setDepth(Depths.BG_GROUND);
-    // West bridge (to Hut)
-    this.add.rectangle(0, cy - BRIDGE / 2, 32, BRIDGE, 0xd4b88a)
-      .setOrigin(0, 0)
-      .setDepth(Depths.BG_GROUND);
-    // South bridge (to Lighthouse)
-    this.add.rectangle(cx - BRIDGE / 2, VILLAGE_HEIGHT - 32, BRIDGE, 32, 0xd4b88a)
-      .setOrigin(0, 0)
-      .setDepth(Depths.BG_GROUND);
+    const SAND = 0xd4b88a;
+    const SAND_DEPTH = Depths.BG_GROUND + 1;
+    this.add.rectangle(cx - BRIDGE / 2, 0, BRIDGE, ISLAND_INSET * TILE_SIZE, SAND)
+      .setOrigin(0, 0).setDepth(SAND_DEPTH);
+    this.add.rectangle(0, cy - BRIDGE / 2, ISLAND_INSET * TILE_SIZE, BRIDGE, SAND)
+      .setOrigin(0, 0).setDepth(SAND_DEPTH);
+    this.add.rectangle(cx - BRIDGE / 2, VILLAGE_HEIGHT - ISLAND_INSET * TILE_SIZE, BRIDGE, ISLAND_INSET * TILE_SIZE, SAND)
+      .setOrigin(0, 0).setDepth(SAND_DEPTH);
   }
 
   private buildLandmarks() {
