@@ -14,6 +14,7 @@ import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 import { paintFill } from '../engine/terrainTiles';
+import { snappedFollow } from '../engine/camera';
 
 export const CRASH_WIDTH = 640;
 export const CRASH_HEIGHT = 360;
@@ -96,7 +97,7 @@ export class CrashSiteScene extends Phaser.Scene {
       },
     );
 
-    this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
+    snappedFollow(this, this.player.sprite);
 
     drawBorderFog(this, CRASH_WIDTH, CRASH_HEIGHT, ZONES);
     if (isDev()) {

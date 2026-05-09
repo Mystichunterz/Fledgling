@@ -14,6 +14,7 @@ import { Player } from '../actors/Player';
 import { isDev } from '../engine/dev';
 import { drawDevGrid, drawBorderFog, drawCornerMarkers } from '../engine/worldDecor';
 import { paintFill } from '../engine/terrainTiles';
+import { snappedFollow } from '../engine/camera';
 
 export const HUT_WIDTH = 480;
 export const HUT_HEIGHT = 270;
@@ -84,7 +85,7 @@ export class HutScene extends Phaser.Scene {
       },
     );
 
-    this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
+    snappedFollow(this, this.player.sprite);
 
     drawBorderFog(this, HUT_WIDTH, HUT_HEIGHT, ZONES);
     if (isDev()) {
