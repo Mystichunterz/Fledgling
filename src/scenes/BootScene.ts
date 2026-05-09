@@ -33,15 +33,20 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // The player spritesheet's frames are cropped a few pixels too high.
-    // Phaser's spritesheet `margin` is uniform (X + Y), so we can't shift
-    // only vertically via the loader config — adjust each frame's cutY
-    // after load instead.
-    const PLAYER_FRAME_Y_SHIFT = 5;
+    // The player spritesheet's frames are cropped too high — there's a gap
+    // above the head and the feet sit at the frame bottom. Shift the crop
+    // window down AND reduce its height by the same amount so we trim the
+    // top gap without bleeding into the next row's character below.
+    const PLAYER_FRAME_Y_SHIFT = 25;
     const playerTex = this.textures.get(SpriteKeys.PLAYER);
     for (const name of playerTex.getFrameNames()) {
       const frame = playerTex.frames[name];
-      frame.setSize(frame.cutWidth, frame.cutHeight, frame.cutX, frame.cutY + PLAYER_FRAME_Y_SHIFT);
+      frame.setSize(
+        frame.cutWidth,
+        frame.cutHeight - PLAYER_FRAME_Y_SHIFT,
+        frame.cutX,
+        frame.cutY + PLAYER_FRAME_Y_SHIFT,
+      );
     }
 
     this.scene.run(SceneKeys.PLAYER_HUD);
