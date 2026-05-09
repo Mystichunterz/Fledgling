@@ -5,7 +5,10 @@ import { formatFrameText } from '../lang/frame-text';
 import { encodeFrame } from '../lang/encoder';
 import { glossFrame } from '../lang/gloss';
 
-const TOGGLE_KEY = 'fledgling:devConsole:open';
+const isDevHudVisible = (): boolean => {
+  const el = document.getElementById('debug-hud');
+  return !!el && !el.hasAttribute('hidden');
+};
 
 const safe = <T>(label: string, fn: () => T): { ok: true; value: T } | { ok: false; err: string } => {
   try { return { ok: true, value: fn() }; }
@@ -119,10 +122,10 @@ export class DialogueDevConsole {
   private lastTree: DialogueTree | null = null;
   private lastNodeId: string | null = null;
   private lastSpec: LanguageSpec | null = null;
-  private keyHandler: (ev: KeyboardEvent) => void;
+  private hudListener: (ev: Event) => void;
 
   constructor() {
-    this.isOpen = localStorage.getItem(TOGGLE_KEY) === '1';
+    this.isOpen = isDevHudVisible();
 
     const style = document.createElement('style');
     style.textContent = `
@@ -195,7 +198,7 @@ export class DialogueDevConsole {
 
     const header = document.createElement('div');
     header.className = 'dc-header';
-    header.innerHTML = `<span>Dialogue Dev Console</span><span class="dc-hint">backtick (\`) to toggle</span>`;
+    header.innerHTML = `<span>Dialogue Dev Console</span><span class="dc-hint">backtick (\`) toggles dev HUD</span>`;
 
     this.body = document.createElement('div');
     this.body.className = 'dc-body';
@@ -203,23 +206,12 @@ export class DialogueDevConsole {
     this.root.append(header, this.body);
     document.body.appendChild(this.root);
 
-    this.keyHandler = (ev: KeyboardEvent) => {
-      if (ev.key === '`' || ev.key === '~') {
-        if (!this.dialogueOpen) return;
-        const target = ev.target as HTMLElement | null;
-        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-        ev.stopPropagation();
-        ev.preventDefault();
-        this.toggle();
-      }
+    this.hudListener = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ visible: boolean }>).detail;
+      this.isOpen = !!detail?.visible;
+      this.applyVisibility();
     };
-    window.addEventListener('keydown', this.keyHandler, true);
-  }
-
-  toggle() {
-    this.isOpen = !this.isOpen;
-    localStorage.setItem(TOGGLE_KEY, this.isOpen ? '1' : '0');
-    this.applyVisibility();
+    window.addEventListener('dev:hud-toggled', this.hudListener);
   }
 
   private applyVisibility() {
@@ -229,6 +221,7 @@ export class DialogueDevConsole {
 
   notifyDialogueOpened() {
     this.dialogueOpen = true;
+    this.isOpen = isDevHudVisible();
     this.applyVisibility();
   }
 
@@ -272,7 +265,7 @@ export class DialogueDevConsole {
   }
 
   destroy() {
-    window.removeEventListener('keydown', this.keyHandler, true);
+    window.removeEventListener('dev:hud-toggled', this.hudListener);
     this.root.remove();
   }
 }

@@ -298,6 +298,7 @@ export class DebugScene extends Phaser.Scene {
     if (!this.hudEl) return;
     this.hudVisible = !this.hudVisible;
     this.hudEl.toggleAttribute('hidden', !this.hudVisible);
+    window.dispatchEvent(new CustomEvent('dev:hud-toggled', { detail: { visible: this.hudVisible } }));
   }
 
   private jumpTo(target: string) {
