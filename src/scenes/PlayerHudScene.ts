@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SceneKeys } from '../assets/keys';
 import { GameRegistry } from '../state/GameRegistry';
-import { ITEM_GLYPH, ITEM_LABEL, ITEM_SPRITE, type ItemId } from '../state/items';
+import { ITEMS, ITEM_GLYPH, ITEM_LABEL, ITEM_SPRITE, type ItemId } from '../state/items';
 
 const SLOT_COUNT = 6;
 const MUSIC_MUTE_KEY = 'fledgling.musicMuted';
@@ -26,10 +26,26 @@ export class PlayerHudScene extends Phaser.Scene {
     if (!this.hudEl) return;
     this.buildHud();
     this.bindMusicToggle();
+    this.preloadIconImages();
     this.startRefreshLoop();
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
     this.events.once(Phaser.Scenes.Events.DESTROY, () => this.teardown());
+  }
+
+  // Phaser's load.image populates its own texture cache, but the hotbar
+  // renders icons via CSS url() — a separate browser fetch. Without this
+  // pre-warm, the first pickup of water/rope/basket waits on an HTTP load
+  // before the slot icon appears. Decoding off-thread (decode()) means the
+  // slot paint won't stutter either.
+  private preloadIconImages() {
+    for (const item of ITEMS) {
+      const sprite = ITEM_SPRITE[item];
+      if (!sprite) continue;
+      const img = new Image();
+      img.src = `/assets/sprite_${sprite}.png`;
+      img.decode().catch(() => { /* ignore decode failures */ });
+    }
   }
 
   private bindMusicToggle() {
