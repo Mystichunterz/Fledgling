@@ -35,6 +35,10 @@ export class BootScene extends Phaser.Scene {
     this.load.image(SpriteKeys.ITEM_OIL,   'sprite_item_oil.png');
     this.load.image(SpriteKeys.ITEM_FLINT, 'sprite_item_flint.png');
     this.load.image(SpriteKeys.ITEM_FRUIT, 'sprite_item_fruit.png');
+    this.load.image(SpriteKeys.ITEM_WATER, 'sprite_item_water.png');
+    this.load.image(SpriteKeys.ITEM_ROPE,  'sprite_item_rope.png');
+    this.load.image(SpriteKeys.ITEM_BASKET,'sprite_item_basket.png');
+    this.load.image(SpriteKeys.PROP_DIARY, 'sprite_diary.png');
     this.load.spritesheet(SpriteKeys.TILES_TERRAIN, 'tiles_terrain.png', {
       frameWidth: 16,
       frameHeight: 16,

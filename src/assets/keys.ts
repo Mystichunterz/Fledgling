@@ -26,6 +26,10 @@ export const SpriteKeys = {
   ITEM_OIL:   'item_oil',
   ITEM_FLINT: 'item_flint',
   ITEM_FRUIT: 'item_fruit',
+  ITEM_WATER: 'item_water',
+  ITEM_ROPE:  'item_rope',
+  ITEM_BASKET:'item_basket',
+  PROP_DIARY: 'prop_diary',
   TILES_TERRAIN: 'tiles_terrain',
 } as const;
 export type SpriteKey = typeof SpriteKeys[keyof typeof SpriteKeys];
