@@ -173,6 +173,29 @@ function tokenize(input: string): string[] {
 
 // ─── Decoder ────────────────────────────────────────────────────
 
+// Bare-stem GREET interjection. The encoder collapses phatic GREETs to a
+// single token — "salu" / "hello" — with no subject or addressee. Recover
+// the canonical phatic frame here. Any speaker/addressee combination that
+// was phatic on the encode side decodes to {self, listener} (the deictic
+// default for an unaddressed greeting).
+function tryDecodeBareGreet(
+  spec: LanguageSpec,
+  tokens: string[],
+): FilledFrame | null {
+  if (tokens.length !== 1) return null;
+  const tok = tokens[0]!;
+  for (const entry of Object.values(spec.lexicon)) {
+    if (entry.category === "verb" && entry.frame === "GREET" && entry.stem === tok) {
+      return {
+        predicate: "GREET",
+        mood: "declarative",
+        roles: { greeter: "self", addressee: "listener" },
+      };
+    }
+  }
+  return null;
+}
+
 export function decodeText(
   spec: LanguageSpec,
   input: string,
@@ -186,6 +209,9 @@ export function decodeText(
 
   let tokens = tokenize(input);
   if (tokens.length === 0) throw new ParseError("Empty input");
+
+  const bareGreet = tryDecodeBareGreet(spec, tokens);
+  if (bareGreet) return bareGreet;
 
   // Strip sentence-level mood particles (simple-difficulty languages).
   // Q is purely a question signal (the wh-word in the noun analysis will
@@ -348,6 +374,9 @@ function decodeSimple(spec: LanguageSpec, input: string): FilledFrame {
   if (rest.length === 0) {
     throw new ParseError("Empty input after particle strip");
   }
+
+  const bareGreet = tryDecodeBareGreet(spec, rest);
+  if (bareGreet) return bareGreet;
 
   // Identify the verb by exact stem match. Stem inventories are designed
   // so verb stems don't collide with nouns/pronouns/wh/particles.

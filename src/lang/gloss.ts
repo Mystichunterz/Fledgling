@@ -5,6 +5,7 @@ import {
   isDeicticPerson,
   isEntityRef,
   isNestedFrame,
+  isPhaticGreet,
   isUnknown,
   numberOf,
   validateFilledFrame,
@@ -116,6 +117,17 @@ export function glossFrame(
   validateFilledFrame(filled);
   const frame = FRAMES[filled.predicate];
   if (!frame) throw new Error(`Unknown frame: ${filled.predicate}`);
+
+  // Phatic GREET: bare interjection, no subject/addressee, no affix tags.
+  if (isPhaticGreet(filled)) {
+    const verbInfo = verbForFrame(spec, "GREET");
+    const verbWord: GlossedWord = {
+      surface: verbInfo.stem,
+      label: "GREET",
+      tags: [],
+    };
+    return { surface: verbInfo.stem, words: [verbWord] };
+  }
 
   const subjectWords: GlossedWord[] = [];
   const objectWords: GlossedWord[] = [];
