@@ -8,10 +8,10 @@ interface Followable { x: number; y: number; displayHeight: number; }
 // We sidestep that by appending labels to <body> and updating their CSS
 // each frame from the canvas's own getBoundingClientRect().
 //
-// World→viewport must factor in cam.zoom (CAMERA_ZOOM=2 in scenes/config.ts);
-// without it, labels under-correct for camera scroll and visibly drift with
-// the camera. Tick on PRE_RENDER (not POST_UPDATE) so the scroll value we
-// read is the post-bounds-clamp value the renderer will actually use.
+// Project world→canvas via cam.worldView + camera viewport offset (cam.x/y).
+// worldView already factors in zoom + scroll + bounds-clamp, so it stays
+// correct regardless of CAMERA_ZOOM or camera bounds. Tick on PRE_RENDER so
+// the worldView we read is the post-bounds-clamp value the renderer uses.
 export const attachLabel = (
   scene: Phaser.Scene,
   sprite: Followable,
@@ -36,13 +36,19 @@ export const attachLabel = (
   const update = () => {
     const canvas = scene.scale.canvas;
     const rect = canvas.getBoundingClientRect();
+    const view = cam.worldView;
+    if (view.width === 0 || view.height === 0) return;
     const sx = rect.width / scene.scale.width;
     const sy = rect.height / scene.scale.height;
-    const z = cam.zoom;
     // Sprite origin is assumed (0.5, 1) — sprite.y is the bottom edge.
     const spriteTopWorldY = sprite.y - sprite.displayHeight;
-    const cssX = rect.left + (sprite.x - cam.scrollX) * z * sx;
-    const cssY = rect.top + (spriteTopWorldY - cam.scrollY) * z * sy - gap;
+    // World → canvas px: ((world - view.{x,y}) / view.{w,h}) * cam.{w,h},
+    // offset by cam.{x,y} for non-fullscreen viewports. Then canvas → CSS
+    // by the rect/scale ratio.
+    const canvasX = cam.x + ((sprite.x - view.x) / view.width) * cam.width;
+    const canvasY = cam.y + ((spriteTopWorldY - view.y) / view.height) * cam.height;
+    const cssX = rect.left + canvasX * sx;
+    const cssY = rect.top + canvasY * sy - gap;
     el.style.transform = `translate(${cssX}px, ${cssY}px) translate(-50%, -100%)`;
   };
 
