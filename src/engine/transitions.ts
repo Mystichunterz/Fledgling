@@ -53,6 +53,7 @@ export function checkTransitions(
 function startTransition(scene: Phaser.Scene, target: string, spawnAt: string) {
   transitioning = true;
   scene.cameras.main.fadeOut(FADE_MS, 0, 0, 0);
+  window.dispatchEvent(new CustomEvent('fledgling:fade-out', { detail: { ms: FADE_MS } }));
   scene.cameras.main.once('camerafadeoutcomplete', () => {
     const data: SceneEnterData = { spawnAt };
     scene.scene.start(target, data);
@@ -76,6 +77,7 @@ export function fadeInOnEnter(scene: Phaser.Scene): void {
   // The previous scene is fully torn down by this point.
   transitioning = false;
   scene.cameras.main.fadeIn(FADE_MS, 0, 0, 0);
+  window.dispatchEvent(new CustomEvent('fledgling:fade-in', { detail: { ms: FADE_MS } }));
 }
 
 export function resolveSpawn(

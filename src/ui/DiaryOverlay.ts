@@ -11,6 +11,8 @@ export class DiaryOverlay {
   private isOpen = false;
   private unsub: (() => void) | null = null;
   private keyHandler: (ev: KeyboardEvent) => void;
+  private fadeOutHandler: (ev: Event) => void;
+  private fadeInHandler: (ev: Event) => void;
 
   constructor() {
     this.button = this.makeButton();
@@ -117,6 +119,26 @@ export class DiaryOverlay {
       }
     };
     window.addEventListener('keydown', this.keyHandler, true);
+
+    // Sync the button with Phaser's camera fade. The button is a DOM sibling
+    // of the canvas, so the camera fade alone leaves it floating above the
+    // black layer.
+    this.fadeOutHandler = (ev: Event) => {
+      const ms = (ev as CustomEvent<{ ms: number }>).detail?.ms ?? 200;
+      this.button.style.transition = `opacity ${ms}ms linear`;
+      this.button.style.opacity = '0';
+      this.button.style.pointerEvents = 'none';
+      // Don't leave the modal stranded mid-transition.
+      if (this.isOpen) this.close();
+    };
+    this.fadeInHandler = (ev: Event) => {
+      const ms = (ev as CustomEvent<{ ms: number }>).detail?.ms ?? 200;
+      this.button.style.transition = `opacity ${ms}ms linear`;
+      this.button.style.opacity = '1';
+      this.button.style.pointerEvents = 'auto';
+    };
+    window.addEventListener('fledgling:fade-out', this.fadeOutHandler);
+    window.addEventListener('fledgling:fade-in', this.fadeInHandler);
   }
 
   private makeButton(): HTMLButtonElement {
@@ -322,6 +344,8 @@ export class DiaryOverlay {
 
   destroy() {
     window.removeEventListener('keydown', this.keyHandler, true);
+    window.removeEventListener('fledgling:fade-out', this.fadeOutHandler);
+    window.removeEventListener('fledgling:fade-in', this.fadeInHandler);
     this.button.remove();
     this.root.remove();
     this.unsub?.();
