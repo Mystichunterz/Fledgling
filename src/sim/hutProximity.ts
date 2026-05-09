@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { Depths } from '../engine/depths';
 import { attachProximityHighlight } from '../engine/highlight';
+import { attachLabel } from '../ui/NpcLabel';
 import { isFlagSet } from '../state/dialogueFlags';
 import { maybeOpenJournalOnHutEntry } from '../ui/JournalOverlay';
 
@@ -20,27 +21,32 @@ export const attachJournalPage = (
   if (isFlagSet('has_visited_hut')) return;
 
   const depth = Depths.ACTORS + Math.round(y);
-  const book = scene.add.rectangle(x, y, 14, 10, 0xead5a8)
+  // Burgundy leather binding so it reads as a book against the parchment
+  // props on the same floor. Sized similar to an NPC sprite so the proximity
+  // highlight ring frames it the same way.
+  const book = scene.add.rectangle(x, y, 14, 18, 0x7a2820)
     .setOrigin(0.5, 1)
-    .setStrokeStyle(1, 0x4a2e16)
+    .setStrokeStyle(1, 0x2a0a08)
     .setDepth(depth)
     .setInteractive({
-      hitArea: new Phaser.Geom.Rectangle(-6, -16, 26, 22),
+      hitArea: new Phaser.Geom.Rectangle(-8, -22, 30, 28),
       hitAreaCallback: Phaser.Geom.Rectangle.Contains,
       useHandCursor: true,
     });
 
-  // Spine detail — a darker line down the middle so it reads as a book.
-  const spine = scene.add.rectangle(x, y - 5, 1, 8, 0x4a2e16)
+  // Page-edge detail — a thin parchment band along the top so it reads as
+  // a closed book, not just a rectangle.
+  const pages = scene.add.rectangle(x, y - 16, 12, 2, 0xead5a8)
     .setOrigin(0.5, 0.5)
     .setDepth(depth + 1);
 
+  attachLabel(scene, book, 'Maren’s journal');
   attachProximityHighlight(scene, book, { radius: 48 });
 
   book.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
     pointer.event?.stopPropagation?.();
     maybeOpenJournalOnHutEntry();
     book.destroy();
-    spine.destroy();
+    pages.destroy();
   });
 };

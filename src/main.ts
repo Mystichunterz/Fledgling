@@ -50,7 +50,8 @@ game.events.once('ready', () => {
       spawnPickupTiles(scene, npcSceneKey);
       if (sceneKey === SceneKeys.CRASH_SITE) handlePemiAtBeach(scene);
       // Maren's journal sits on the hut floor — clickable, glows on approach.
-      if (sceneKey === SceneKeys.HUT) attachJournalPage(scene, { x: 240, y: 200 });
+      // Placed left of the existing prop row so it stands clear of them.
+      if (sceneKey === SceneKeys.HUT) attachJournalPage(scene, { x: 180, y: 220 });
     });
   }
 });
