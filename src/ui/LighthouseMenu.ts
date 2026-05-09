@@ -30,19 +30,26 @@ export class LighthouseMenu {
     `;
     document.body.appendChild(this.root);
 
+    // Belt-and-braces: stop pointer/mouse/click from bubbling out of the menu.
+    // The pyre's Phaser input rect lives behind the menu, so without this the
+    // same pointerdown that hits a menu button also reopens the menu.
+    const swallow = (ev: Event) => ev.stopPropagation();
+    this.root.addEventListener('pointerdown', swallow);
+    this.root.addEventListener('mousedown',  swallow);
+    this.root.addEventListener('click',      swallow);
+
     this.clickAwayHandler = (ev: MouseEvent) => {
       if (!this.isOpen) return;
-      const inside = this.root.contains(ev.target as Node);
-      console.info('[LighthouseMenu] clickAway mousedown', {
-        targetTag: (ev.target as HTMLElement)?.tagName,
-        inside,
-      });
-      if (inside) return;
+      if (this.root.contains(ev.target as Node)) return;
       this.close();
     };
   }
 
   open(options: LighthouseMenuOpenOptions) {
+    // Idempotent: if a stray pointerdown bubbles to the pyre's Phaser input
+    // handler while the menu is already open, we must NOT re-render — that
+    // tears down the button DOM mid-click and the click event never fires.
+    if (this.isOpen) return;
     this.render(options);
     this.root.style.display = 'block';
     this.isOpen = true;
@@ -107,29 +114,13 @@ export class LighthouseMenu {
     this.root.appendChild(list);
 
     const allHave = CRITICAL_ITEMS.every(id => GameRegistry.itemsCollected.has(id));
-    console.info('[LighthouseMenu] render', {
-      allHave,
-      collected: [...GameRegistry.itemsCollected],
-      missingCriticals: CRITICAL_ITEMS.filter(id => !GameRegistry.itemsCollected.has(id)),
-      beaconLit: GameRegistry.beaconLit,
-    });
     this.root.appendChild(
       this.makeButton(
         allHave ? 'Light the Beacon' : `Need ${this.missingCount()} more`,
         allHave,
         () => {
-          console.info('[LighthouseMenu] Light the Beacon clicked', {
-            beaconLit: GameRegistry.beaconLit,
-            collected: [...GameRegistry.itemsCollected],
-          });
           this.close();
-          try {
-            options.onLight();
-            console.info('[LighthouseMenu] onLight() returned cleanly');
-          } catch (err) {
-            console.error('[LighthouseMenu] onLight() threw:', err);
-            throw err;
-          }
+          options.onLight();
         },
       ),
     );
@@ -157,18 +148,10 @@ export class LighthouseMenu {
         : 'none'};
       text-shadow: ${enabled ? '1px 1px 0 rgba(0, 0, 0, 0.5)' : 'none'};
     `;
-    console.info('[LighthouseMenu] makeButton', { label, enabled });
-    btn.addEventListener('pointerdown', () => console.info('[LighthouseMenu] button pointerdown', { label }));
-    btn.addEventListener('mousedown',  () => console.info('[LighthouseMenu] button mousedown',  { label }));
-    btn.addEventListener('click',      () => console.info('[LighthouseMenu] button click event', { label, disabled: btn.disabled }));
     if (enabled) {
       btn.onmouseenter = () => { btn.style.filter = 'brightness(1.18)'; };
       btn.onmouseleave = () => { btn.style.filter = 'none'; };
-      btn.onclick = (ev) => {
-        console.info('[LighthouseMenu] button onclick handler running', { label });
-        ev.stopPropagation();
-        onClick();
-      };
+      btn.onclick = (ev) => { ev.stopPropagation(); onClick(); };
     }
     return btn;
   }
