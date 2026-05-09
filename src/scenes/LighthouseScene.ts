@@ -162,10 +162,15 @@ export class LighthouseScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1,
     });
+    // Tween relative to the post-setDisplaySize scale, not absolute. The fire
+    // texture is 2048×2048; a `from: 1.0` would snap it to native size and
+    // engulf the camera.
+    const baseScaleX = this.fire.scaleX;
+    const baseScaleY = this.fire.scaleY;
     this.tweens.add({
       targets: this.fire,
-      scaleY: { from: 0.94, to: 1.06 },
-      scaleX: { from: 1.02, to: 0.98 },
+      scaleY: { from: baseScaleY * 0.94, to: baseScaleY * 1.06 },
+      scaleX: { from: baseScaleX * 1.02, to: baseScaleX * 0.98 },
       duration: 280,
       yoyo: true,
       repeat: -1,
