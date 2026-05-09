@@ -9,6 +9,10 @@ export type AudioKey = typeof AudioKeys[keyof typeof AudioKeys];
 
 export const SceneKeys = {
   BOOT: 'boot',
-  ISLAND: 'island',
+  CRASH_SITE: 'crash_site',
+  VILLAGE: 'village',
+  HUT: 'hut',
+  HEADLAND: 'headland',
+  DEBUG: 'debug',
 } as const;
 export type SceneKey = typeof SceneKeys[keyof typeof SceneKeys];

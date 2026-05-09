@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKeys } from '../assets/keys';
+import { isDev } from '../engine/dev';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -8,10 +9,10 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this.load.setPath('assets');
-    // Future: bitmap fonts, atlases, voice manifest go here.
   }
 
   create() {
-    this.scene.start(SceneKeys.ISLAND);
+    if (isDev()) this.scene.run(SceneKeys.DEBUG);
+    this.scene.start(SceneKeys.VILLAGE);
   }
 }

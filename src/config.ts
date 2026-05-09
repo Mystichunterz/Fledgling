@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
-import { IslandScene } from './scenes/IslandScene';
+import { CrashSiteScene } from './scenes/CrashSiteScene';
+import { VillageScene } from './scenes/VillageScene';
+import { HutScene } from './scenes/HutScene';
+import { HeadlandScene } from './scenes/HeadlandScene';
+import { DebugScene } from './scenes/DebugScene';
 
 export const VIEWPORT_WIDTH = 320;
 export const VIEWPORT_HEIGHT = 180;
@@ -16,6 +20,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
+  dom: { createContainer: true },
   backgroundColor: '#0a0a14',
-  scene: [BootScene, IslandScene],
+  scene: [BootScene, CrashSiteScene, VillageScene, HutScene, HeadlandScene, DebugScene],
 };
