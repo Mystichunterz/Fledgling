@@ -43,6 +43,81 @@
       #debug-hud b { color: #ffe680; }
       #debug-hud .hint { opacity: 0.5; font-size: 10px; margin-top: 2px; }
       #debug-hud[hidden] { display: none; }
+
+      /* Player inventory HUD — Stardew-inspired wooden frame at bottom centre. */
+      #player-hud {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 900;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        font-family: ui-monospace, 'Cascadia Code', 'Courier New', monospace;
+        user-select: none;
+        pointer-events: none;
+        image-rendering: pixelated;
+      }
+      #player-hud .pack {
+        display: flex;
+        gap: 0;
+        padding: 6px;
+        background: linear-gradient(rgba(200, 144, 88, 0.78), rgba(160, 100, 50, 0.78));
+        border: 2px solid rgba(42, 20, 8, 0.55);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 230, 180, 0.18),
+          0 4px 12px rgba(0, 0, 0, 0.25);
+      }
+      #player-hud .slot {
+        position: relative;
+        width: 72px;
+        height: 72px;
+        margin: 0 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(40, 24, 12, 0.55);
+        border: 2px solid rgba(20, 8, 4, 0.45);
+        font-weight: 600;
+        font-size: 30px;
+        color: rgba(248, 220, 160, 0.22);
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35);
+        box-shadow:
+          inset 1px 1px 0 rgba(0, 0, 0, 0.35),
+          inset -1px -1px 0 rgba(180, 130, 70, 0.18);
+      }
+      #player-hud .slot.have {
+        background: linear-gradient(rgba(248, 208, 130, 0.88), rgba(208, 138, 60, 0.88));
+        color: rgba(42, 20, 8, 0.92);
+        text-shadow: 1px 1px 0 rgba(255, 240, 200, 0.35);
+        box-shadow:
+          inset 1px 1px 0 rgba(255, 240, 200, 0.45),
+          inset -1px -1px 0 rgba(140, 70, 20, 0.4);
+      }
+      #player-hud .beacon {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(248, 220, 160, 0.92);
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+        padding: 3px 12px;
+        background: rgba(40, 20, 10, 0.6);
+        border: 1px solid rgba(42, 20, 8, 0.55);
+        letter-spacing: 1.2px;
+        opacity: 0;
+        transform: translateY(-2px);
+        transition: opacity .25s ease, transform .25s ease;
+      }
+      #player-hud .beacon.lit {
+        opacity: 1;
+        transform: translateY(0);
+        color: #ffc070;
+        background: rgba(60, 22, 4, 0.7);
+        border-color: rgba(160, 74, 26, 0.7);
+        box-shadow: 0 0 10px rgba(255, 140, 40, 0.35);
+      }
+      #player-hud[hidden] { display: none; }
       #debug-hud .teleport {
         margin-top: 6px;
         display: flex;
@@ -78,6 +153,7 @@
   </head>
   <body>
     <div id="game"></div>
+    <div id="player-hud"></div>
     <div id="debug-hud"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

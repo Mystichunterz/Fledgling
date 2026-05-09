@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { SceneKeys } from '../assets/keys';
-import { GameRegistry } from '../state/GameRegistry';
+import { GameRegistry, giveItem, clearItems } from '../state/GameRegistry';
+import { ITEMS, ITEM_LABEL, type ItemId } from '../state/items';
 
 const HOTKEY_TO_SCENE: Record<string, string> = {
   '1': SceneKeys.CRASH_SITE,
@@ -20,6 +21,7 @@ export class DebugScene extends Phaser.Scene {
   private hudEl: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
   private buttons = new Map<string, HTMLButtonElement>();
+  private itemButtons = new Map<ItemId, HTMLButtonElement>();
   private hudVisible = true;
   private rafHandle = 0;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -60,6 +62,22 @@ export class DebugScene extends Phaser.Scene {
       this.buttons.set(sceneKey, btn);
     }
     this.hudEl.appendChild(teleport);
+
+    const items = document.createElement('div');
+    items.className = 'teleport items';
+    for (const id of ITEMS) {
+      const btn = document.createElement('button');
+      btn.dataset.item = id;
+      btn.textContent = ITEM_LABEL[id];
+      btn.addEventListener('click', () => giveItem(id));
+      items.appendChild(btn);
+      this.itemButtons.set(id, btn);
+    }
+    const reset = document.createElement('button');
+    reset.textContent = 'Reset';
+    reset.addEventListener('click', () => clearItems());
+    items.appendChild(reset);
+    this.hudEl.appendChild(items);
 
     const hint = document.createElement('div');
     hint.className = 'hint';
@@ -115,12 +133,22 @@ export class DebugScene extends Phaser.Scene {
     const py = Math.round(GameRegistry.playerY);
     const ww = GameRegistry.worldWidth;
     const wh = GameRegistry.worldHeight;
+    const itemsLine = ITEMS.map(i =>
+      GameRegistry.itemsCollected.has(i)
+        ? `<b>${ITEM_LABEL[i]}</b>`
+        : `<span style="opacity:.4">${ITEM_LABEL[i]}</span>`,
+    ).join(' ');
+    const beacon = GameRegistry.beaconLit ? ' &middot; <b style="color:#ffa040">beacon lit</b>' : '';
     this.statusEl.innerHTML = `
       <div><b>${sc}</b> &middot; ${fps} fps</div>
       <div>player ${px}, ${py} / ${ww}&times;${wh}</div>
+      <div>items: ${itemsLine}${beacon}</div>
     `;
     for (const [sceneKey, btn] of this.buttons) {
       btn.classList.toggle('active', sceneKey === sc);
+    }
+    for (const [id, btn] of this.itemButtons) {
+      btn.classList.toggle('active', GameRegistry.itemsCollected.has(id));
     }
   }
 

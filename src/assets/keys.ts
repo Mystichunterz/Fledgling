@@ -14,5 +14,6 @@ export const SceneKeys = {
   HUT: 'hut',
   LIGHTHOUSE: 'lighthouse',
   DEBUG: 'debug',
+  PLAYER_HUD: 'player_hud',
 } as const;
 export type SceneKey = typeof SceneKeys[keyof typeof SceneKeys];

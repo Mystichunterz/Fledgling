@@ -12,6 +12,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    this.scene.run(SceneKeys.PLAYER_HUD);
     if (isDev()) this.scene.run(SceneKeys.DEBUG);
     this.scene.start(SceneKeys.VILLAGE);
   }
