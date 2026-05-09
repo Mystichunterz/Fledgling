@@ -1,6 +1,7 @@
 import type { ItemId } from './items';
-import type { LanguageSpec } from '../lang/language-spec';
+import type { Difficulty, LanguageSpec } from '../lang/language-spec';
 import { EXAMPLE_LANGUAGE } from '../lang/example-language';
+import { randomLanguage } from '../lang/random-language';
 
 export interface GameRegistryShape {
   currentScene: string | null;
@@ -11,10 +12,35 @@ export interface GameRegistryShape {
   itemsCollected: Set<ItemId>;
   beaconLit: boolean;
   // Active conlang spec used to encode dialogue frames into surface text.
-  // Defaults to the hand-authored fixture (tovari); a language picker can
-  // swap this at runtime later.
+  // Boot-time: derived from URL params (?seed=, ?difficulty=) via
+  // randomLanguage(); falls back to the tovari fixture if generation fails.
   language: LanguageSpec;
+  languageSeed: string;
+  languageDifficulty: Difficulty;
 }
+
+const DEFAULT_SEED = 'banana';
+const DEFAULT_DIFFICULTY: Difficulty = 'simple';
+
+function bootLanguage(): { language: LanguageSpec; seed: string; difficulty: Difficulty } {
+  const params =
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const seedParam = params?.get('seed')?.trim();
+  const seed = seedParam && seedParam.length > 0 ? seedParam : DEFAULT_SEED;
+  const diffParam = params?.get('difficulty');
+  const difficulty: Difficulty = diffParam === 'full' ? 'full' : DEFAULT_DIFFICULTY;
+  try {
+    return { language: randomLanguage(seed, difficulty), seed, difficulty };
+  } catch (err) {
+    console.warn(
+      `[fledgling] randomLanguage("${seed}", "${difficulty}") failed; falling back to tovari fixture.`,
+      err,
+    );
+    return { language: EXAMPLE_LANGUAGE, seed: EXAMPLE_LANGUAGE.id, difficulty };
+  }
+}
+
+const boot = bootLanguage();
 
 export const GameRegistry: GameRegistryShape = {
   currentScene: null,
@@ -24,7 +50,9 @@ export const GameRegistry: GameRegistryShape = {
   worldHeight: 0,
   itemsCollected: new Set(),
   beaconLit: false,
-  language: EXAMPLE_LANGUAGE,
+  language: boot.language,
+  languageSeed: boot.seed,
+  languageDifficulty: boot.difficulty,
 };
 
 export function hasAllItems(): boolean {
