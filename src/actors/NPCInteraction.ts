@@ -8,25 +8,23 @@ import type { NpcId } from '../sim/dialogueTypes';
 let sharedMenu: InteractionMenu | null = null;
 let sharedOverlay: DialogueOverlay | null = null;
 
-const ensureSingletons = (scene: Phaser.Scene) => {
-  if (!sharedMenu) sharedMenu = new InteractionMenu(scene);
+const ensureSingletons = () => {
+  if (!sharedMenu) sharedMenu = new InteractionMenu();
   if (!sharedOverlay) sharedOverlay = new DialogueOverlay();
   return { menu: sharedMenu, overlay: sharedOverlay };
 };
 
-type ClickableSprite = Phaser.GameObjects.GameObject & { x: number; y: number };
+type ClickableSprite = Phaser.GameObjects.GameObject & {
+  x: number; y: number; scene: Phaser.Scene;
+};
 
-export const attachInteraction = (
-  scene: Phaser.Scene,
-  sprite: ClickableSprite,
-  npcId: NpcId,
-) => {
-  const { menu, overlay } = ensureSingletons(scene);
+export const attachInteraction = (sprite: ClickableSprite, npcId: NpcId) => {
+  const { menu, overlay } = ensureSingletons();
   const interactive = sprite as unknown as { setInteractive?: (cfg?: object) => void };
   interactive.setInteractive?.({ useHandCursor: true });
 
   sprite.on('pointerdown', () => {
-    menu.open(sprite.x, sprite.y, [
+    menu.open(sprite.scene, sprite.x, sprite.y, [
       {
         id: 'talk',
         label: 'Talk',

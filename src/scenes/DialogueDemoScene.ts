@@ -14,20 +14,26 @@ export class DialogueDemoScene extends Phaser.Scene {
       'Click an NPC. Press 1-4 to pick a choice. Esc to leave dialogue.',
       { fontSize: '14px', color: '#cdd9e8', fontFamily: 'ui-monospace, monospace' });
     this.add.text(16, 36,
-      'Roster preview only — Enterprise (T13) owns world layout and pathing.',
+      'UI demo only — village placement lives in main.ts hook + VillageScene.',
       { fontSize: '11px', color: '#7d8aa3', fontFamily: 'ui-monospace, monospace' });
 
-    NPC_ROSTER.forEach(npc => {
-      const sprite = this.add.rectangle(npc.spawn.x, npc.spawn.y, 24, 36, npc.spriteColor)
+    // Demo lays NPCs out in a horizontal row independent of their canonical
+    // village spawn coords — this scene is for testing the dialogue UI in
+    // isolation, not for representing the world.
+    const stride = (DEMO_VIEWPORT_WIDTH - 160) / Math.max(NPC_ROSTER.length - 1, 1);
+    NPC_ROSTER.forEach((npc, i) => {
+      const x = 80 + i * stride;
+      const y = DEMO_VIEWPORT_HEIGHT / 2;
+      const sprite = this.add.rectangle(x, y, 24, 36, npc.spriteColor)
         .setStrokeStyle(2, 0x000000)
         .setOrigin(0.5, 1);
       const label = npc.holdsItem
         ? `${npc.displayName} (${npc.archetype}, ${npc.holdsItem})`
         : `${npc.displayName} (${npc.archetype})`;
-      this.add.text(npc.spawn.x, npc.spawn.y + 6, label, {
+      this.add.text(x, y + 6, label, {
         fontSize: '11px', color: '#e8dcc1', fontFamily: 'ui-monospace, monospace',
       }).setOrigin(0.5, 0);
-      attachInteraction(this, sprite, npc.id);
+      attachInteraction(sprite, npc.id);
     });
   }
 }

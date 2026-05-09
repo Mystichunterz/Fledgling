@@ -7,13 +7,11 @@ export interface MenuOption {
 }
 
 export class InteractionMenu {
-  private scene: Phaser.Scene;
   private root: HTMLDivElement;
   private clickAwayHandler: (ev: MouseEvent) => void;
   private isOpen = false;
 
-  constructor(scene: Phaser.Scene) {
-    this.scene = scene;
+  constructor() {
     this.root = document.createElement('div');
     this.root.style.cssText = `
       position: fixed; display: none;
@@ -32,7 +30,7 @@ export class InteractionMenu {
     };
   }
 
-  open(worldX: number, worldY: number, options: MenuOption[]) {
+  open(scene: Phaser.Scene, worldX: number, worldY: number, options: MenuOption[]) {
     this.root.innerHTML = '';
     options.forEach(opt => {
       const btn = document.createElement('button');
@@ -49,7 +47,7 @@ export class InteractionMenu {
       this.root.appendChild(btn);
     });
 
-    const screen = this.worldToScreen(worldX, worldY);
+    const screen = this.worldToScreen(scene, worldX, worldY);
     this.root.style.left = `${screen.x + 12}px`;
     this.root.style.top = `${screen.y - 12}px`;
     this.root.style.display = 'block';
@@ -64,12 +62,12 @@ export class InteractionMenu {
     window.removeEventListener('mousedown', this.clickAwayHandler);
   }
 
-  private worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
-    const cam = this.scene.cameras.main;
-    const canvas = this.scene.scale.canvas;
+  private worldToScreen(scene: Phaser.Scene, worldX: number, worldY: number): { x: number; y: number } {
+    const cam = scene.cameras.main;
+    const canvas = scene.scale.canvas;
     const rect = canvas.getBoundingClientRect();
-    const sx = rect.width / this.scene.scale.width;
-    const sy = rect.height / this.scene.scale.height;
+    const sx = rect.width / scene.scale.width;
+    const sy = rect.height / scene.scale.height;
     return {
       x: rect.left + (worldX - cam.scrollX) * sx,
       y: rect.top + (worldY - cam.scrollY) * sy,

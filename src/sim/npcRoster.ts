@@ -1,11 +1,13 @@
 import type { NpcId, NpcArchetype, ItemKind } from './dialogueTypes';
 
+export type NpcSceneKey = 'village' | 'crash_site' | 'hut' | 'lighthouse';
+
 export interface NpcDef {
   id: NpcId;
   displayName: string;
   archetype: NpcArchetype;
   occupation?: string;
-  homeLocationTag: 'beach' | 'well' | 'firepit' | 'forest' | 'shrine' | 'hut' | 'lighthouse';
+  scene: NpcSceneKey;
   spawn: { x: number; y: number };
   holdsItem?: ItemKind;
   isClimaxNpc?: boolean;
@@ -13,14 +15,17 @@ export interface NpcDef {
   spriteColor: number;
 }
 
+// Spawn coords align with VillageScene landmarks (1280x720 world):
+//   bakery (240,180), guard (800,180), shrine (240,380), play (800,380), farm (320,580).
+// Each NPC sits a few pixels south of their landmark so they're visually "in front".
 export const NPC_ROSTER: NpcDef[] = [
   {
     id: 'npc.pemi',
     displayName: 'Pemi',
     archetype: 'child',
-    homeLocationTag: 'beach',
-    spawn: { x: 480, y: 270 },
-    dialogueRootId: 'pemi.greet',
+    scene: 'village',
+    spawn: { x: 640, y: 200 },
+    dialogueRootId: 'PEM_INITIAL',
     spriteColor: 0xf5d97a,
   },
   {
@@ -29,9 +34,9 @@ export const NPC_ROSTER: NpcDef[] = [
     archetype: 'elder_woman',
     occupation: 'baker',
     holdsItem: 'wood',
-    homeLocationTag: 'forest',
-    spawn: { x: 240, y: 360 },
-    dialogueRootId: 'naro.greet',
+    scene: 'village',
+    spawn: { x: 240, y: 220 },
+    dialogueRootId: 'NAR_INITIAL',
     spriteColor: 0xe5a07a,
   },
   {
@@ -40,9 +45,9 @@ export const NPC_ROSTER: NpcDef[] = [
     archetype: 'elder_woman',
     occupation: 'farmer',
     holdsItem: 'oil',
-    homeLocationTag: 'well',
-    spawn: { x: 720, y: 200 },
-    dialogueRootId: 'lemu.greet',
+    scene: 'village',
+    spawn: { x: 340, y: 610 },
+    dialogueRootId: 'LEM_INITIAL',
     spriteColor: 0xc4d76a,
   },
   {
@@ -51,9 +56,9 @@ export const NPC_ROSTER: NpcDef[] = [
     archetype: 'man',
     occupation: 'guard',
     holdsItem: 'flint',
-    homeLocationTag: 'firepit',
-    spawn: { x: 600, y: 420 },
-    dialogueRootId: 'toka.greet',
+    scene: 'village',
+    spawn: { x: 800, y: 220 },
+    dialogueRootId: 'TOK_INITIAL',
     spriteColor: 0x9aa3c7,
   },
   {
@@ -61,10 +66,10 @@ export const NPC_ROSTER: NpcDef[] = [
     displayName: 'Hala',
     archetype: 'chief',
     occupation: 'shrine-tender',
-    homeLocationTag: 'lighthouse',
-    spawn: { x: 480, y: 100 },
+    scene: 'village',
+    spawn: { x: 240, y: 410 },
     isClimaxNpc: true,
-    dialogueRootId: 'hala.greet',
+    dialogueRootId: 'HAL_INITIAL',
     spriteColor: 0xb893d4,
   },
 ];

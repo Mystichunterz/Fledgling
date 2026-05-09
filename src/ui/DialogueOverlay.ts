@@ -48,15 +48,26 @@ export class DialogueOverlay {
 
     this.keyHandler = (ev: KeyboardEvent) => {
       if (this.currentNodeId === null) return;
-      if (ev.key === 'Escape') { this.close(); return; }
+      if (ev.key === 'Escape') {
+        ev.stopPropagation();
+        ev.preventDefault();
+        this.close();
+        return;
+      }
       const idx = parseInt(ev.key, 10);
       if (isFinite(idx) && idx >= 1 && idx <= 9) {
         const node = this.currentTree?.[this.currentNodeId];
         const choice = node?.choices[idx - 1];
-        if (choice) this.pickChoice(choice.id);
+        if (choice) {
+          // Capture-phase + stopPropagation prevents DebugScene's 1-4 hotkey
+          // jump from also firing while a dialogue choice is on screen.
+          ev.stopPropagation();
+          ev.preventDefault();
+          this.pickChoice(choice.id);
+        }
       }
     };
-    window.addEventListener('keydown', this.keyHandler);
+    window.addEventListener('keydown', this.keyHandler, true);
   }
 
   open(tree: DialogueTree, rootId: string, onClose?: () => void) {
@@ -127,7 +138,7 @@ export class DialogueOverlay {
   }
 
   destroy() {
-    window.removeEventListener('keydown', this.keyHandler);
+    window.removeEventListener('keydown', this.keyHandler, true);
     this.root.remove();
   }
 }
