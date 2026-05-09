@@ -1,13 +1,13 @@
 import Phaser from 'phaser';
 import { SceneKeys } from '../assets/keys';
 import { makeGround, paintPatch, scatterTrees, TILE_SIZE } from '../engine/terrainTiles';
+import { VIEWPORT_WIDTH, VIEWPORT_HEIGHT } from '../config';
 
 // Sized to the 320x180 viewport: 20 tiles wide x 11 tiles tall, so the
 // water perimeter, grass island borders, dirt clearing, and trees are all
-// visible at once without scrolling. Hard-coded rather than imported from
-// ../config to avoid the circular import (config imports this scene).
-const COLS = 20;
-const ROWS = 11;
+// visible at once without scrolling.
+const COLS = Math.floor(VIEWPORT_WIDTH / TILE_SIZE);   // 20
+const ROWS = Math.floor(VIEWPORT_HEIGHT / TILE_SIZE);  // 11
 const WORLD_W = COLS * TILE_SIZE;
 const WORLD_H = ROWS * TILE_SIZE;
 
