@@ -41,7 +41,7 @@ const VERB_CONCEPTS = [
   "GIVE", "TAKE", "MOVE", "WANT", "BE_AT", "HAVE",
   "SEE", "SAY", "MAKE", "EAT",
   // Social / dialogue frames added for game integration.
-  "GREET", "AFFIRM", "DENY", "DECIDE", "KNOW",
+  "GREET", "AFFIRM", "DENY", "DECIDE", "KNOW", "BE_STATE",
 ] as const;
 const ITEM_CONCEPTS = [
   "FLINT", "STICK", "LIGHTER", "BREAD", "WATER",
@@ -59,7 +59,7 @@ const ANIMATE_CONCEPTS = [
   // NPC proper names — random-seeded languages give each NPC a generated stem.
   "PEMI", "NARO", "LEMU", "TOKA", "SENU", "HALA",
 ] as const;
-const ABSTRACT_CONCEPTS = ["LEAVING", "STAYING"] as const;
+const ABSTRACT_CONCEPTS = ["LEAVING", "STAYING", "GOOD"] as const;
 // Deictic pronouns the random language must realise. Keys correspond to
 // the Pronoun enum members minus "unknown" (wh-words are emitted under
 // the WH_<TYPE> scheme below). Lexicon keys follow PRONOUN_ID_FOR.
