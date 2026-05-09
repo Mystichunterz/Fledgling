@@ -4,15 +4,21 @@ import { clampToRect } from '../engine/coords';
 import { SpriteKeys } from '../assets/keys';
 
 const SPEED = 60;
-const PLAYER_DISPLAY_SIZE = 32;
+// Target on-screen height; width is derived from the texture's aspect ratio so
+// the explorer doesn't get squashed. The original village-man frames were
+// square; the explorer cells are ~317x591, much taller than wide.
+const PLAYER_DISPLAY_HEIGHT = 48;
 const PLAYER_ANIMS = {
   IDLE: 'player-idle',
   WALK_DOWN: 'player-walk-down',
-  NOD: 'player-nod',
-  PUZZLED: 'player-puzzled',
-  FROWN: 'player-frown',
-  LAUGH: 'player-laugh',
 } as const;
+
+// Layout of explorer-spritesheet.png — 8 columns, 2 rows.
+const SHEET_COLS = 8;
+const IDLE_ROW = 0;
+const IDLE_FRAMES = 6;
+const WALK_ROW = 1;
+const WALK_FRAMES = 8;
 
 export interface PlayerBounds {
   x0: number;
@@ -37,9 +43,13 @@ export class Player {
   constructor(scene: Phaser.Scene, x: number, y: number, bounds: PlayerBounds) {
     this.bounds = bounds;
     ensurePlayerAnimations(scene);
+    const frame = scene.textures.get(SpriteKeys.PLAYER).get(0);
+    const aspect = frame.width / frame.height;
+    const dispH = PLAYER_DISPLAY_HEIGHT;
+    const dispW = Math.round(dispH * aspect);
     this.sprite = scene.add.sprite(x, y, SpriteKeys.PLAYER, 0)
       .setOrigin(0.5, 1)
-      .setDisplaySize(PLAYER_DISPLAY_SIZE, PLAYER_DISPLAY_SIZE)
+      .setDisplaySize(dispW, dispH)
       .setDepth(Depths.ACTORS + Math.round(y));
     this.sprite.play(PLAYER_ANIMS.IDLE);
 
@@ -85,46 +95,22 @@ export class Player {
 function ensurePlayerAnimations(scene: Phaser.Scene) {
   if (scene.anims.exists(PLAYER_ANIMS.IDLE)) return;
 
-  const makeFrames = (row: number) =>
+  const rowFrames = (row: number, count: number) =>
     scene.anims.generateFrameNumbers(SpriteKeys.PLAYER, {
-      start: row * 8,
-      end: row * 8 + 7,
+      start: row * SHEET_COLS,
+      end: row * SHEET_COLS + count - 1,
     });
 
   scene.anims.create({
     key: PLAYER_ANIMS.IDLE,
-    frames: makeFrames(0),
-    frameRate: 5,
+    frames: rowFrames(IDLE_ROW, IDLE_FRAMES),
+    frameRate: 6,
     repeat: -1,
   });
   scene.anims.create({
     key: PLAYER_ANIMS.WALK_DOWN,
-    frames: makeFrames(1),
-    frameRate: 10,
+    frames: rowFrames(WALK_ROW, WALK_FRAMES),
+    frameRate: 12,
     repeat: -1,
-  });
-  scene.anims.create({
-    key: PLAYER_ANIMS.NOD,
-    frames: makeFrames(2),
-    frameRate: 8,
-    repeat: 0,
-  });
-  scene.anims.create({
-    key: PLAYER_ANIMS.PUZZLED,
-    frames: makeFrames(3),
-    frameRate: 8,
-    repeat: 0,
-  });
-  scene.anims.create({
-    key: PLAYER_ANIMS.FROWN,
-    frames: makeFrames(4),
-    frameRate: 8,
-    repeat: 0,
-  });
-  scene.anims.create({
-    key: PLAYER_ANIMS.LAUGH,
-    frames: makeFrames(5),
-    frameRate: 8,
-    repeat: 0,
   });
 }

@@ -9,11 +9,13 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this.load.setPath('assets');
-    this.load.spritesheet(SpriteKeys.PLAYER, 'village-man-spritesheet.png', {
-      frameWidth: 181,
-      frameHeight: 181,
-      margin: 2,
-      spacing: 2,
+    // Explorer sprite sheet — row 0: 6 idle frames, row 1: 8 walking frames.
+    // Generated from source art with magenta keyed out and frames normalized
+    // to a common 317x591 cell with bottom-center alignment so feet stay put
+    // across both anims. See public/assets/explorer-spritesheet.png.
+    this.load.spritesheet(SpriteKeys.PLAYER, 'explorer-spritesheet.png', {
+      frameWidth: 317,
+      frameHeight: 591,
     });
     this.load.image(SpriteKeys.LOC_HUT,    'sprite_location_hut.png');
     this.load.image(SpriteKeys.LOC_STATUE, 'sprite_location_statue.png');
@@ -47,22 +49,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // Every cell in the player spritesheet is misaligned: the character art
-    // sits ~25 px below the cell top, which means each frame Phaser extracts
-    // contains the previous row's feet at the top and clips the current
-    // row's feet off the bottom. Shift each frame's source window down by
-    // 25 px to align with the actual character art. Clamp cutHeight against
-    // the texture bottom so the last row doesn't read past the image.
-    const PLAYER_FRAME_Y_SHIFT = 25;
-    const playerTex = this.textures.get(SpriteKeys.PLAYER);
-    const texH = playerTex.source[0].height;
-    for (const name of playerTex.getFrameNames()) {
-      const frame = playerTex.frames[name];
-      const newCutY = frame.cutY + PLAYER_FRAME_Y_SHIFT;
-      const newCutHeight = Math.min(frame.cutHeight, texH - newCutY);
-      frame.setSize(frame.cutWidth, newCutHeight, frame.cutX, newCutY);
-    }
-
     this.scene.run(SceneKeys.PLAYER_HUD);
     if (isDev()) this.scene.run(SceneKeys.DEBUG);
 
