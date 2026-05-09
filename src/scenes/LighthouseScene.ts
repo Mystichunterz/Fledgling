@@ -44,7 +44,6 @@ export class LighthouseScene extends Phaser.Scene {
   private player: Player;
   private spawnAt: string | undefined;
   private beacon: Phaser.GameObjects.Image;
-  private fire?: Phaser.GameObjects.Image;
   private flameGlow?: Phaser.GameObjects.Rectangle;
 
   constructor() {
@@ -148,10 +147,6 @@ export class LighthouseScene extends Phaser.Scene {
     const beaconHeight = this.beacon.displayHeight || 0;
     const fireY = PYRE_Y - beaconHeight * 0.55;
 
-    this.fire = this.add.image(PYRE_X, fireY, SpriteKeys.LOC_FIRE)
-      .setOrigin(0.5, 1)
-      .setDisplaySize(48, 48)
-      .setDepth(Depths.FX);
     this.flameGlow = this.add.rectangle(PYRE_X, fireY + 8, 120, 80, 0xff8030, 0.35)
       .setOrigin(0.5, 1)
       .setDepth(Depths.FX - 1);
@@ -164,19 +159,6 @@ export class LighthouseScene extends Phaser.Scene {
       targets: this.flameGlow,
       alpha: { from: 0.3, to: 0.55 },
       duration: 720,
-      yoyo: true,
-      repeat: -1,
-    });
-    // Tween relative to the post-setDisplaySize scale, not absolute. The fire
-    // texture is 2048×2048; a `from: 1.0` would snap it to native size and
-    // engulf the camera.
-    const baseScaleX = this.fire.scaleX;
-    const baseScaleY = this.fire.scaleY;
-    this.tweens.add({
-      targets: this.fire,
-      scaleY: { from: baseScaleY * 0.94, to: baseScaleY * 1.06 },
-      scaleX: { from: baseScaleX * 1.02, to: baseScaleX * 0.98 },
-      duration: 280,
       yoyo: true,
       repeat: -1,
     });
