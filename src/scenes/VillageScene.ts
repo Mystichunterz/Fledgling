@@ -20,14 +20,14 @@ export const VILLAGE_HEIGHT = 720;
 const SPAWN_POINTS: Record<string, SpawnPoint> = {
   fromCrash:    { x: 640, y: 90,  facing: 'south' },
   fromHut:      { x: 32,  y: 360, facing: 'east' },
-  fromHeadland: { x: 640, y: 656, facing: 'north' },
+  fromLighthouse: { x: 640, y: 656, facing: 'north' },
   default:      { x: 640, y: 360, facing: 'south' },
 };
 
 const ZONES: ReadonlyArray<TransitionZone> = [
   { edge: 'north', targetScene: SceneKeys.CRASH_SITE, spawnAt: 'fromVillage' },
   { edge: 'west',  targetScene: SceneKeys.HUT,        spawnAt: 'fromVillage' },
-  { edge: 'south', targetScene: SceneKeys.HEADLAND,   spawnAt: 'fromVillage' },
+  { edge: 'south', targetScene: SceneKeys.LIGHTHOUSE, spawnAt: 'fromVillage' },
 ];
 
 export class VillageScene extends Phaser.Scene {

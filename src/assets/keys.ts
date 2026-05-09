@@ -12,7 +12,7 @@ export const SceneKeys = {
   CRASH_SITE: 'crash_site',
   VILLAGE: 'village',
   HUT: 'hut',
-  HEADLAND: 'headland',
+  LIGHTHOUSE: 'lighthouse',
   DEBUG: 'debug',
 } as const;
 export type SceneKey = typeof SceneKeys[keyof typeof SceneKeys];
