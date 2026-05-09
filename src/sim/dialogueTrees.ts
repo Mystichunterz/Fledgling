@@ -641,12 +641,15 @@ const senu: DialogueTree = {
   },
 };
 
-// Hala — Phase A stub only. Full climax tree (Phase D) lands with T43 Phase 5
-// once the lighthouse-door open and ending screens are wired.
+// Hala — full climax tree per §4.6. Entry priority:
+//   1. HAL_DOOR_OPENS — all 3 critical items (wood/oil/flint) → climax tree
+//   2. HAL_SOME_ITEMS — met but missing items → "Almost"
+//   3. HAL_INITIAL    — first approach → "Not yet"
 const hala: DialogueTree = {
   npcId: 'hala',
-  entries: ['HAL_INITIAL'],
+  entries: ['HAL_DOOR_OPENS', 'HAL_SOME_ITEMS', 'HAL_INITIAL'],
   nodes: {
+    // Phase A — door closed
     HAL_INITIAL: {
       id: 'HAL_INITIAL',
       speaker: 'hala',
@@ -654,9 +657,183 @@ const hala: DialogueTree = {
       trigger: { excludes: ['met_hala'] },
       sideEffects: [{ kind: 'set_flag', flag: 'met_hala' }],
       options: [
-        { text: 'Not yet — what?', kind: 'utterance', react: 'puzzle',     next: 'END' },
-        { text: 'Try the door.',   kind: 'gesture',   react: 'shake_head', next: 'END' },
+        { text: 'Not yet — what?', kind: 'utterance', react: 'puzzle',     next: 'HAL_NOT_YET' },
+        { text: 'Try the door.',   kind: 'gesture',   react: 'shake_head', next: 'HAL_DOOR_LOCKED' },
         { text: '(leave)',         kind: 'gesture',   react: 'none',       next: 'END' },
+      ],
+    },
+    HAL_NOT_YET: {
+      id: 'HAL_NOT_YET',
+      speaker: 'hala',
+      line: '(through the door) "Not yet your turn to talk to me. Walk west first. Read what was left for you. Then ask the four for what me need."',
+      sideEffects: [
+        { kind: 'log_hint', hint: 'hut_west' },
+        { kind: 'log_hint', hint: 'ask_four_npcs' },
+      ],
+      options: [
+        { text: '(leave)', kind: 'gesture', react: 'none', next: 'END' },
+      ],
+    },
+    HAL_DOOR_LOCKED: {
+      id: 'HAL_DOOR_LOCKED',
+      speaker: 'hala',
+      line: '(through the door) "Door opens for fire. Bring it."',
+      options: [
+        { text: '(leave)', kind: 'gesture', react: 'none', next: 'END' },
+      ],
+    },
+    // Phase B — met but missing items
+    HAL_SOME_ITEMS: {
+      id: 'HAL_SOME_ITEMS',
+      speaker: 'hala',
+      line: '(through the door, slight smile in her voice) "Almost. Bring me a fire, not three things in your arms."',
+      trigger: { requires: ['met_hala'] },
+      options: [
+        { text: '(leave)', kind: 'gesture', react: 'none', next: 'END' },
+      ],
+    },
+    // Phase C — door opens with all three items
+    HAL_DOOR_OPENS: {
+      id: 'HAL_DOOR_OPENS',
+      speaker: 'hala',
+      line: '(The lighthouse door creaks open. A warm light spills out. Inside, an old woman stands beside a stone hearth. She is the chief — Hala.) (she steps aside to let you in) "Come."',
+      trigger: { requires: ['holds_item_wood', 'holds_item_oil', 'holds_item_flint'] },
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'HAL_BEACON_OPEN' },
+      ],
+    },
+    // Phase D — climax tree (all stock-line per §4.6)
+    HAL_BEACON_OPEN: {
+      id: 'HAL_BEACON_OPEN',
+      speaker: 'hala',
+      stockLine: true,
+      line: '(stands beside the unlit hearth; lays a hand on the stone ring) "There. Same fire. Same air. Twenty winters and the same wind through the chimney."',
+      options: [
+        { text: `You knew ${PREDECESSOR_NAME}.`,    kind: 'utterance', react: 'nod',   next: 'HAL_KNEW_MAREN' },
+        { text: `${PREDECESSOR_NAME} go home?`,     kind: 'utterance', react: 'nod',   next: 'HAL_DID_MAREN' },
+        { text: 'Why you cry?',                      kind: 'utterance', react: 'frown', next: 'HAL_WHY_CRYING' },
+        { text: '(silent, place the wood)',          kind: 'gesture',   react: 'none',  next: 'HAL_WAIT' },
+      ],
+    },
+    HAL_KNEW_MAREN: {
+      id: 'HAL_KNEW_MAREN',
+      speaker: 'hala',
+      stockLine: true,
+      line: '"Knew. We sat together every dusk for nineteen years. They learned our words. Me never learned theirs — not really. We didn\'t need to." (she meets your eyes for the first time)',
+      options: [
+        { text: 'Tell me — the end.', kind: 'utterance', react: 'nod', next: 'HAL_END_STORY' },
+        { text: 'Letter — still come?', kind: 'utterance', react: 'nod', next: 'HAL_LETTER' },
+        { text: 'Were you — love?',  kind: 'utterance', react: 'nod', next: 'HAL_LOVE' },
+      ],
+    },
+    HAL_DID_MAREN: {
+      id: 'HAL_DID_MAREN',
+      speaker: 'hala',
+      stockLine: true,
+      line: '"Yes. Boat saw the fire that night. They went up the rope ladder and turned once at the top to look back. Then ship went on." (beat) "A year later, wind brought a folded paper in a fishing net."',
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'HAL_LETTER' },
+      ],
+    },
+    HAL_WHY_CRYING: {
+      id: 'HAL_WHY_CRYING',
+      speaker: 'hala',
+      stockLine: true,
+      line: '"Because the fire reminds me. Because you remind me. Because me always thought there\'d only be one." (she touches the stone of the hearth)',
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'HAL_BEACON_OPEN' },
+      ],
+    },
+    HAL_WAIT: {
+      id: 'HAL_WAIT',
+      speaker: 'hala',
+      line: "(after a long quiet) \"It's all right. There's no rush now. Boat that comes for you won't come until first light.\"",
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'HAL_BEACON_OPEN' },
+      ],
+    },
+    HAL_END_STORY: {
+      id: 'HAL_END_STORY',
+      speaker: 'hala',
+      stockLine: true,
+      line: '"They woke one morning and said it\'s time, isn\'t it. Me said yes, because it was. We lit this lighthouse together. Boat came at dawn. They left me a smooth river-stone and a name they\'d written down — yours and mine on the same page — and they went."',
+      options: [
+        { text: 'Right choice?',         kind: 'utterance', react: 'nod',   next: 'HAL_RIGHT_CHOICE' },
+        { text: 'Did they want to stay?', kind: 'utterance', react: 'frown', next: 'HAL_WANTED_STAY' },
+        { text: 'Me — same question?',    kind: 'utterance', react: 'nod',   next: 'HAL_QUESTION' },
+      ],
+    },
+    HAL_LETTER: {
+      id: 'HAL_LETTER',
+      speaker: 'hala',
+      stockLine: true,
+      line: '"Six lines. They had taught their family our words. They said the bread on their side of the world was the wrong shape. They said the sea was louder there." (small laugh) "We read it once a year. Whole village."',
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'HAL_END_STORY' },
+      ],
+    },
+    HAL_LOVE: {
+      id: 'HAL_LOVE',
+      speaker: 'hala',
+      stockLine: true,
+      line: "(long beat; she is honest) \"Me don't know what your word for it is. Me don't even know if me have one in mine. We were each other's. That is what me have.\"",
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'HAL_END_STORY' },
+      ],
+    },
+    HAL_RIGHT_CHOICE: {
+      id: 'HAL_RIGHT_CHOICE',
+      speaker: 'hala',
+      line: "\"It was the choice they could live with. Both choices are real. Neither is better. The wrong one is the one you can't believe in.\"",
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'HAL_QUESTION' },
+      ],
+    },
+    HAL_WANTED_STAY: {
+      id: 'HAL_WANTED_STAY',
+      speaker: 'hala',
+      line: '(tilts her head) "Some days. So did me, want them to. They went anyway. They were right to."',
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'HAL_QUESTION' },
+      ],
+    },
+    HAL_QUESTION: {
+      id: 'HAL_QUESTION',
+      speaker: 'hala',
+      stockLine: true,
+      line: '(she takes both your hands; the hearth catches behind her, oil flaring; the lighthouse lamp turns and throws a beam out to sea) "So me ask you, the way me asked them. Boat comes at first light. You go, or you stay?"',
+      options: [
+        { text: 'Me go.',          kind: 'utterance', react: 'nod', next: 'END_LEAVE' },
+        { text: 'Me stay.',        kind: 'utterance', react: 'nod', next: 'END_STAY' },
+        { text: 'Wait — me think.', kind: 'utterance', react: 'nod', next: 'HAL_MOMENT' },
+      ],
+    },
+    HAL_MOMENT: {
+      id: 'HAL_MOMENT',
+      speaker: 'hala',
+      line: '(nods) "Take it. The fire will keep."',
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'HAL_QUESTION' },
+      ],
+    },
+    // Endings — these fire the EndScreen overlay via the encounter event,
+    // which listens for nodeId END_LEAVE / END_STAY.
+    END_LEAVE: {
+      id: 'END_LEAVE',
+      speaker: 'hala',
+      stockLine: true,
+      line: "(she lets go of your hands and steps back) \"Then go. Take a memory of us with you. We'll read your letter, when it comes.\"",
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'END' },
+      ],
+    },
+    END_STAY: {
+      id: 'END_STAY',
+      speaker: 'hala',
+      stockLine: true,
+      line: "(her face cracks into a smile she didn't expect) \"Then come. Bread is still warm at Naro's. There's a stool at Lemu's press for you. Senu has a second axe.\"",
+      options: [
+        { text: '…', kind: 'gesture', react: 'none', next: 'END' },
       ],
     },
   },
