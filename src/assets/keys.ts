@@ -4,6 +4,7 @@ export const SpriteKeys = {
   LOC_STATUE: 'loc_statue',
   LOC_FIRE:   'loc_fire',
   LOC_BEACON: 'loc_beacon',
+  LOC_BOAT:   'loc_boat',
   ITEM_WOOD:  'item_wood',
   ITEM_OIL:   'item_oil',
   ITEM_FLINT: 'item_flint',

@@ -45,6 +45,7 @@ export class LighthouseScene extends Phaser.Scene {
   private beacon: Phaser.GameObjects.Image;
   private fire?: Phaser.GameObjects.Image;
   private flameGlow?: Phaser.GameObjects.Rectangle;
+  private boat?: Phaser.GameObjects.Image;
 
   constructor() {
     super(SceneKeys.LIGHTHOUSE);
@@ -162,6 +163,37 @@ export class LighthouseScene extends Phaser.Scene {
       duration: 280,
       yoyo: true,
       repeat: -1,
+    });
+
+    this.spawnBoat(animate);
+  }
+
+  private spawnBoat(animate: boolean) {
+    const boatY = LIGHTHOUSE_HEIGHT - 40;
+    const finalX = LIGHTHOUSE_WIDTH * 0.72;
+    const startX = animate ? LIGHTHOUSE_WIDTH + 80 : finalX;
+
+    this.boat = this.add.image(startX, boatY, SpriteKeys.LOC_BOAT)
+      .setOrigin(0.5, 1)
+      .setDisplaySize(96, 64)
+      .setDepth(Depths.BG_DECOR + 210);
+
+    if (animate) {
+      this.tweens.add({
+        targets: this.boat,
+        x: finalX,
+        duration: 4200,
+        ease: 'Sine.easeOut',
+      });
+    }
+
+    this.tweens.add({
+      targets: this.boat,
+      y: { from: boatY - 2, to: boatY + 2 },
+      duration: 1600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
     });
   }
 }
