@@ -187,6 +187,10 @@ export type FilledFrame = {
   // type under `exactOptionalPropertyTypes: true`.
   tense?: Tense | undefined;
   negated?: boolean | undefined;
+  // Yes/no question flag. A polar question stays in declarative mood — the
+  // encoder triggers the question-marking affix/particle when this is true.
+  // Kept on the type because encoder/english/gloss/isPhaticGreet read it.
+  polarQuestion?: boolean | undefined;
 };
 
 export type RoleFiller =
@@ -201,6 +205,7 @@ export const FilledFrame: z.ZodType<FilledFrame> = z.lazy(() =>
     roles: z.record(z.string(), RoleFiller),
     tense: Tense.optional(),
     negated: z.boolean().optional(),
+    polarQuestion: z.boolean().optional(),
   }),
 );
 
@@ -231,6 +236,23 @@ export function isNestedFrame(
 }
 export function isEntityRef(f: RoleFiller): f is EntityRef {
   return typeof f === "object" && f !== null && "conceptId" in f && !("kind" in f);
+}
+
+// Phatic GREET: a canonical declarative greeting/farewell whose participants
+// are both deictic (1st/2nd/3rd-person pronouns). Real-world greetings don't
+// surface a subject or addressee word — "hello" stands alone — so the encoder
+// collapses these to a bare interjection. Non-phatic GREETs (concrete
+// animates, wh-questions, past/future, negated) keep the full SVO clause.
+export function isPhaticGreet(filled: FilledFrame): boolean {
+  if (filled.predicate !== "GREET") return false;
+  if (filled.mood !== "declarative") return false;
+  if (filled.negated) return false;
+  if (filled.polarQuestion) return false;
+  if (filled.tense && filled.tense !== "present") return false;
+  const greeter = filled.roles["greeter"];
+  const addressee = filled.roles["addressee"];
+  if (greeter === undefined || addressee === undefined) return false;
+  return isDeicticPerson(greeter) && isDeicticPerson(addressee);
 }
 
 // Convenience constructor for an EntityRef.

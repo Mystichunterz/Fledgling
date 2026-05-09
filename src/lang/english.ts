@@ -6,6 +6,7 @@ import {
   Tense,
   isEntityRef,
   isNestedFrame,
+  isPhaticGreet,
   isPronoun,
 } from "./frames.js";
 
@@ -181,6 +182,9 @@ interface ClauseOpts {
 }
 
 function englishClause(frame: FilledFrame, opts: ClauseOpts = {}): string {
+  // Phatic GREET → bare interjection.
+  if (isPhaticGreet(frame)) return opts.embedded ? "hello" : "Hello.";
+
   const spec = FRAMES[frame.predicate];
   const tmpl = TEMPLATES[frame.predicate];
   const verb = VERBS[frame.predicate];

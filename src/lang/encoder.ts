@@ -9,6 +9,7 @@ import {
   RoleSpec,
   isEntityRef,
   isNestedFrame,
+  isPhaticGreet,
   isPronoun,
   isUnknown,
   numberOf,
@@ -183,6 +184,12 @@ function placeObliquesAroundVerb(
 function encodeFrameInner(spec: LanguageSpec, frame: FilledFrame): string {
   const frameSpec = FRAMES[frame.predicate];
   if (!frameSpec) throw new Error(`Unknown frame: ${frame.predicate}`);
+
+  // Phatic GREET surfaces as the bare verb stem — "salu" / "hello" — with no
+  // subject, addressee, or affixes.
+  if (isPhaticGreet(frame)) {
+    return verbForFrame(spec, "GREET");
+  }
 
   const subjectNumber = subjectNumberOf(spec, frame);
   // Question-ness rides on either an "unknown" filler (wh-question) or

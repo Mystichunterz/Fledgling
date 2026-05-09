@@ -5,9 +5,11 @@
 // websocket subscriptions across scene transitions.
 
 import { ConvexClient } from 'convex/browser';
-import type Phaser from 'phaser';
+import Phaser from 'phaser';
 
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined;
+const CONVEX_URL = (import.meta as ImportMeta & {
+  env: Record<string, string | undefined>;
+}).env.VITE_CONVEX_URL;
 
 let _client: ConvexClient | null = null;
 

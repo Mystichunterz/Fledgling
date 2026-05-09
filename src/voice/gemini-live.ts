@@ -4,7 +4,7 @@
 // pushes base64 PCM down which feeds StreamingAudioPlayer. The session
 // closes when either side hangs up or the 30-min hard cap expires.
 
-import { GoogleGenAI, Modality, type LiveSession } from '@google/genai';
+import { GoogleGenAI, Modality, type Session } from '@google/genai';
 import { mintGeminiToken } from './gemini-token';
 import { StreamingAudioPlayer } from './audio-player';
 import { startMicrophoneCapture, type MicrophoneCapture } from './microphone';
@@ -46,7 +46,7 @@ export async function openHalaLiveSession(
   let mic: MicrophoneCapture | null = null;
   let closed = false;
 
-  const session: LiveSession = await ai.live.connect({
+  const session: Session = await ai.live.connect({
     model: opts.model ?? DEFAULT_MODEL,
     config: {
       responseModalities: [Modality.AUDIO],
