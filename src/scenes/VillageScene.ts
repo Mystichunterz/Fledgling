@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SceneKeys } from '../assets/keys';
+import { SceneKeys, SpriteKeys } from '../assets/keys';
 import { Depths } from '../engine/depths';
 import {
   checkTransitions,
@@ -115,7 +115,6 @@ export class VillageScene extends Phaser.Scene {
     const landmarks: Landmark[] = [
       { x: 240, y: 180, w: 56, h: 44, color: 0xb56a3a, label: 'bakery' },
       { x: 800, y: 180, w: 40, h: 44, color: 0x6a6a8a, label: 'guard' },
-      { x: 240, y: 380, w: 32, h: 32, color: 0x8a6a3a, label: 'shrine' },
       { x: 800, y: 380, w: 24, h: 24, color: 0x4a8a4a, label: 'play' },
       { x: 320, y: 580, w: 96, h: 56, color: 0xc8a050, label: 'farm' },
     ];
@@ -125,6 +124,16 @@ export class VillageScene extends Phaser.Scene {
         .setStrokeStyle(1, 0x3a2a14)
         .setDepth(Depths.BG_DECOR + Math.round(l.y));
     }
+
+    // Statue — replaces the old "shrine" rectangle in the same plot.
+    this.add.image(240, 380, SpriteKeys.LOC_STATUE)
+      .setOrigin(0.5, 1)
+      .setDepth(Depths.BG_DECOR + 380);
+
+    // Hut landmark on the west, near the bridge to HutScene.
+    this.add.image(140, 360, SpriteKeys.LOC_HUT)
+      .setOrigin(0.5, 1)
+      .setDepth(Depths.BG_DECOR + 360);
 
     // Roads — sit on top of the land bridges, run from the world edge into
     // the village interior. Player walks the path through mist to teleport.

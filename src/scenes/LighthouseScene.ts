@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SceneKeys } from '../assets/keys';
+import { SceneKeys, SpriteKeys } from '../assets/keys';
 import { Depths } from '../engine/depths';
 import {
   checkTransitions,
@@ -33,12 +33,9 @@ const ZONES: ReadonlyArray<TransitionZone> = [
 export class LighthouseScene extends Phaser.Scene {
   private player: Player;
   private spawnAt: string | undefined;
-  private pyreBase: Phaser.GameObjects.Rectangle;
-  private pyreLog1: Phaser.GameObjects.Rectangle;
-  private pyreLog2: Phaser.GameObjects.Rectangle;
-  private flameCore?: Phaser.GameObjects.Rectangle;
+  private beacon: Phaser.GameObjects.Image;
+  private fire?: Phaser.GameObjects.Image;
   private flameGlow?: Phaser.GameObjects.Rectangle;
-  private flameSpark?: Phaser.GameObjects.Rectangle;
   private ignitedThisFrame = false;
 
   constructor() {
@@ -63,14 +60,7 @@ export class LighthouseScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setDepth(Depths.BG_SKY);
 
-    this.pyreBase = this.add.rectangle(PYRE_X, PYRE_Y, 56, 20, 0x4a3020)
-      .setOrigin(0.5, 1)
-      .setStrokeStyle(1, 0x1a1008)
-      .setDepth(Depths.BG_DECOR + 200);
-    this.pyreLog1 = this.add.rectangle(PYRE_X - 8, PYRE_Y - 4, 24, 12, 0x6a4830)
-      .setOrigin(0.5, 1)
-      .setDepth(Depths.BG_DECOR + 200);
-    this.pyreLog2 = this.add.rectangle(PYRE_X + 12, PYRE_Y - 8, 20, 8, 0x6a4830)
+    this.beacon = this.add.image(PYRE_X, PYRE_Y, SpriteKeys.LOC_BEACON)
       .setOrigin(0.5, 1)
       .setDepth(Depths.BG_DECOR + 200);
 
@@ -131,16 +121,13 @@ export class LighthouseScene extends Phaser.Scene {
   }
 
   private applyLitVisual(animate: boolean) {
-    this.pyreLog1.setFillStyle(0xc4581c);
-    this.pyreLog2.setFillStyle(0xe07028);
+    const beaconHeight = this.beacon.displayHeight || 0;
+    const fireY = PYRE_Y - beaconHeight * 0.55;
 
-    this.flameCore = this.add.rectangle(PYRE_X, PYRE_Y - 18, 18, 22, 0xfff0a0)
+    this.fire = this.add.image(PYRE_X, fireY, SpriteKeys.LOC_FIRE)
       .setOrigin(0.5, 1)
       .setDepth(Depths.FX);
-    this.flameSpark = this.add.rectangle(PYRE_X, PYRE_Y - 30, 6, 8, 0xfff8d0)
-      .setOrigin(0.5, 1)
-      .setDepth(Depths.FX + 1);
-    this.flameGlow = this.add.rectangle(PYRE_X, PYRE_Y - 6, 96, 64, 0xff8030, 0.35)
+    this.flameGlow = this.add.rectangle(PYRE_X, fireY + 8, 120, 80, 0xff8030, 0.35)
       .setOrigin(0.5, 1)
       .setDepth(Depths.FX - 1);
 
@@ -156,17 +143,10 @@ export class LighthouseScene extends Phaser.Scene {
       repeat: -1,
     });
     this.tweens.add({
-      targets: this.flameCore,
-      scaleY: { from: 0.92, to: 1.08 },
+      targets: this.fire,
+      scaleY: { from: 0.94, to: 1.06 },
+      scaleX: { from: 1.02, to: 0.98 },
       duration: 280,
-      yoyo: true,
-      repeat: -1,
-    });
-    this.tweens.add({
-      targets: this.flameSpark,
-      y: { from: PYRE_Y - 30, to: PYRE_Y - 38 },
-      alpha: { from: 1, to: 0.4 },
-      duration: 540,
       yoyo: true,
       repeat: -1,
     });

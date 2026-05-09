@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SceneKeys } from '../assets/keys';
 import { GameRegistry } from '../state/GameRegistry';
-import { ITEM_GLYPH, ITEM_LABEL, type ItemId } from '../state/items';
+import { ITEM_LABEL, ITEM_SPRITE, type ItemId } from '../state/items';
 
 const SLOT_COUNT = 6;
 
@@ -67,10 +67,15 @@ export class PlayerHudScene extends Phaser.Scene {
       const item = collected[i];
       if (item) {
         slot.classList.add('have');
-        slot.textContent = ITEM_GLYPH[item];
+        slot.style.backgroundImage = `url('/assets/sprite_${ITEM_SPRITE[item]}.png')`;
+        slot.style.backgroundRepeat = 'no-repeat';
+        slot.style.backgroundPosition = 'center';
+        slot.style.backgroundSize = 'contain';
         slot.title = ITEM_LABEL[item];
+        slot.textContent = '';
       } else {
         slot.classList.remove('have');
+        slot.style.backgroundImage = '';
         slot.textContent = '';
         slot.removeAttribute('title');
       }

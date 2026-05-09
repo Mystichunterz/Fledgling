@@ -1,4 +1,13 @@
-export const SpriteKeys = {} as const;
+export const SpriteKeys = {
+  LOC_HUT:    'loc_hut',
+  LOC_STATUE: 'loc_statue',
+  LOC_FIRE:   'loc_fire',
+  LOC_BEACON: 'loc_beacon',
+  ITEM_WOOD:  'item_wood',
+  ITEM_OIL:   'item_oil',
+  ITEM_FLINT: 'item_flint',
+  ITEM_FRUIT: 'item_fruit',
+} as const;
 export type SpriteKey = typeof SpriteKeys[keyof typeof SpriteKeys];
 
 export const FontKeys = {} as const;

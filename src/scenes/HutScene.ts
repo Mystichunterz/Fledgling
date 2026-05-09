@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SceneKeys } from '../assets/keys';
+import { SceneKeys, SpriteKeys } from '../assets/keys';
 import { Depths } from '../engine/depths';
 import {
   checkTransitions,
@@ -55,16 +55,9 @@ export class HutScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5)
       .setDepth(Depths.BG_GROUND + 1);
 
-    this.add.rectangle(160, 160, 64, 56, 0x6a4a2a)
-      .setOrigin(0.5, 1)
-      .setStrokeStyle(1, 0x2a1a0a)
-      .setDepth(Depths.BG_DECOR + 160);
-    this.add.rectangle(160, 105, 64, 12, 0x4a3020)
+    this.add.image(160, 160, SpriteKeys.LOC_HUT)
       .setOrigin(0.5, 1)
       .setDepth(Depths.BG_DECOR + 160);
-    this.add.rectangle(160, 160, 12, 16, 0x2a1a0a)
-      .setOrigin(0.5, 1)
-      .setDepth(Depths.BG_DECOR + 161);
 
     const props: Array<readonly [number, number, number]> = [
       [240, 200, 0xeee0a8],
