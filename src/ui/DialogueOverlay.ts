@@ -4,6 +4,8 @@ import { isFlagSet, setFlag } from '../state/dialogueFlags';
 import { GameRegistry } from '../state/GameRegistry';
 import { encodeFrame } from '../lang/encoder';
 import type { FilledFrame } from '../lang/frames';
+import { subscribeDiary } from '../sim/diary';
+import { renderGlossed } from './glossRender';
 import { isDev } from '../engine/dev';
 import { DialogueDevConsole } from './DialogueDevConsole';
 
@@ -56,6 +58,7 @@ export class DialogueOverlay {
   private onClose: (() => void) | null = null;
   private keyHandler: (ev: KeyboardEvent) => void;
   private devConsole: DialogueDevConsole | null = null;
+  private diaryUnsub: (() => void) | null = null;
 
   constructor() {
     this.root = document.createElement('div');
@@ -82,7 +85,8 @@ export class DialogueOverlay {
 
     this.lineEl = document.createElement('div');
     this.lineEl.style.cssText = `
-      font-size: 17px; line-height: 1.45; color: #e8dcc1;
+      font-size: 17px; line-height: 1.6; color: #e8dcc1;
+      padding-top: 14px;
       margin-bottom: 14px; min-height: 50px;
     `;
 
@@ -115,6 +119,12 @@ export class DialogueOverlay {
     window.addEventListener('keydown', this.keyHandler, true);
 
     if (isDev()) this.devConsole = new DialogueDevConsole();
+
+    // Re-render the active line + buttons whenever the player edits a gloss
+    // in the diary, so changes appear inline without closing the dialogue.
+    // Side effects + the encounter event do NOT re-fire on rerender — those
+    // belong to first node entry only.
+    this.diaryUnsub = subscribeDiary(() => this.rerender());
   }
 
   open(tree: DialogueTree, rootId: string, onClose?: () => void) {
@@ -149,13 +159,6 @@ export class DialogueOverlay {
     this.currentNodeId = nodeId;
     applySideEffects(node.sideEffects);
 
-    if (this.devConsole && this.currentTree) {
-      this.devConsole.update(this.currentTree, node, GameRegistry.language);
-    }
-
-    const npc = npcById(node.speaker);
-    this.speakerEl.textContent = npc.displayName;
-
     const rendered = renderLine(node.line);
 
     // Encounter hook for the diary to subscribe to. Diary tokenises the
@@ -164,17 +167,39 @@ export class DialogueOverlay {
       detail: { speaker: node.speaker, line: rendered, nodeId: node.id },
     }));
 
-    this.lineEl.textContent = rendered;
+    this.paint(node, rendered);
+  }
+
+  // Re-applies the current node's painted DOM without firing side effects or
+  // the encounter event. Called when the diary fires (player edited a gloss)
+  // so the inline gloss tags update live during an open conversation.
+  private rerender() {
+    if (!this.currentNodeId || !this.currentTree) return;
+    const node = this.currentTree.nodes[this.currentNodeId];
+    if (!node) return;
+    this.paint(node, renderLine(node.line));
+  }
+
+  private paint(node: DialogueNode, rendered: string) {
+    if (this.devConsole && this.currentTree) {
+      this.devConsole.update(this.currentTree, node, GameRegistry.language);
+    }
+
+    const npc = npcById(node.speaker);
+    this.speakerEl.textContent = npc.displayName;
+
+    renderGlossed(rendered, this.lineEl);
 
     this.choicesEl.innerHTML = '';
     const visible = node.options.filter(o => !o.gatedBy || isFlagSet(o.gatedBy));
     visible.forEach((choice, i) => {
       const btn = document.createElement('button');
       btn.style.cssText = `
-        text-align: left; padding: 8px 12px; font-size: 14px;
+        text-align: left; padding: 18px 12px 8px; font-size: 14px;
         font-family: inherit; color: #d4c89a; background: rgba(50,40,28,0.65);
         border: 1px solid #5a4828; border-radius: 4px; cursor: pointer;
         transition: background 0.08s, border-color 0.08s;
+        line-height: 1.4;
         ${choice.kind === 'gesture' ? 'font-style: italic; color: #b8a878;' : ''}
       `;
       btn.onmouseenter = () => {
@@ -185,19 +210,29 @@ export class DialogueOverlay {
         btn.style.background = 'rgba(50,40,28,0.65)';
         btn.style.borderColor = '#5a4828';
       };
-      let label: string;
+
+      // Prefix (number + opening quote for utterances) is plain; the surface
+      // text gets the gloss render so player guesses overlay any words.
+      const prefix = document.createElement('span');
       if (choice.kind === 'gesture') {
-        label = choice.english;
+        prefix.textContent = `${i + 1}. `;
+        btn.appendChild(prefix);
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = choice.english;
+        btn.appendChild(labelSpan);
       } else {
         const surface = choice.frames && choice.frames.length > 0
           ? encodeSurface(choice.frames)
           : '';
-        // §8.2: utterance options should later overlay english as a hover hint
-        // until every word's anchor is known. For now we just display whichever
-        // surface exists — Telopa if framed, english otherwise.
-        label = `"${surface || choice.english}"`;
+        const labelText = surface || choice.english;
+        prefix.textContent = `${i + 1}. "`;
+        btn.appendChild(prefix);
+        const labelSpan = document.createElement('span');
+        renderGlossed(labelText, labelSpan);
+        btn.appendChild(labelSpan);
+        btn.appendChild(document.createTextNode('"'));
       }
-      btn.textContent = `${i + 1}. ${label}`;
+
       btn.onclick = () => this.pickChoice(choice);
       this.choicesEl.appendChild(btn);
     });
@@ -217,6 +252,8 @@ export class DialogueOverlay {
 
   destroy() {
     window.removeEventListener('keydown', this.keyHandler, true);
+    this.diaryUnsub?.();
+    this.diaryUnsub = null;
     this.devConsole?.destroy();
     this.devConsole = null;
     this.root.remove();

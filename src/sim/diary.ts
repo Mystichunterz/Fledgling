@@ -54,6 +54,31 @@ export const tokenise = (text: string): string[] => {
     .filter(t => t.length >= 2);
 };
 
+// Splits a string into alternating word and gap segments while preserving the
+// original spacing and punctuation, so the renderer can rebuild the line as
+// DOM with overlay glosses anchored over each word. Word runs match
+// /[A-Za-z]+/ — Telopa surface forms are ASCII letters; punctuation and
+// whitespace fall through as gaps.
+export type GlossSegment =
+  | { kind: 'word'; text: string; key: string }
+  | { kind: 'gap'; text: string };
+
+export const tokeniseWithGaps = (text: string): GlossSegment[] => {
+  const segments: GlossSegment[] = [];
+  const re = /[A-Za-z]+/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) {
+      segments.push({ kind: 'gap', text: text.slice(last, m.index) });
+    }
+    segments.push({ kind: 'word', text: m[0], key: m[0].toLowerCase() });
+    last = re.lastIndex;
+  }
+  if (last < text.length) segments.push({ kind: 'gap', text: text.slice(last) });
+  return segments;
+};
+
 const onEncounter = (ev: Event) => {
   const detail = (ev as CustomEvent<EncounterDetail>).detail;
   if (!detail) return;
