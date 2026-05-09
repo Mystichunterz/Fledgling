@@ -37,20 +37,26 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // The player spritesheet's frames have a gap above the head AND the
-    // feet bleed into the 2-px spacing below the cell. Shift cutY down to
-    // trim the head gap and extend cutHeight past the cell boundary so the
-    // feet are recovered. Net change to cutHeight = -TOP_TRIM + BOTTOM_EXTEND.
-    const PLAYER_FRAME_TOP_TRIM = 25;
-    const PLAYER_FRAME_BOTTOM_EXTEND = 8;
+    // The player spritesheet's row 0 (idle) has ~26 px of empty padding
+    // above the head. Rows 1-5 (walk/nod/puzzled/frown/laugh) have the
+    // character filling the cell with no head gap. So shift only row 0's
+    // frames down — applying the shift globally would decapitate every
+    // animated frame. Frames are indexed 0-47, 8 per row, top-to-bottom.
+    const FRAMES_PER_ROW = 8;
+    const PER_ROW_TOP_TRIM = [26, 0, 0, 0, 0, 0];
     const playerTex = this.textures.get(SpriteKeys.PLAYER);
     for (const name of playerTex.getFrameNames()) {
+      const idx = parseInt(name, 10);
+      if (Number.isNaN(idx)) continue;
+      const row = Math.floor(idx / FRAMES_PER_ROW);
+      const topTrim = PER_ROW_TOP_TRIM[row] ?? 0;
+      if (topTrim === 0) continue;
       const frame = playerTex.frames[name];
       frame.setSize(
         frame.cutWidth,
-        frame.cutHeight - PLAYER_FRAME_TOP_TRIM + PLAYER_FRAME_BOTTOM_EXTEND,
+        frame.cutHeight - topTrim,
         frame.cutX,
-        frame.cutY + PLAYER_FRAME_TOP_TRIM,
+        frame.cutY + topTrim,
       );
     }
 
